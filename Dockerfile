@@ -23,10 +23,6 @@ WORKDIR /app
 # Copiar el .jar compilado
 COPY --from=builder /app/target/*.jar app.jar
 
-# Copiar el .env
-COPY .env /app/.env
-
-
 # Puerto que expone Spring Boot
 EXPOSE 8080
 
