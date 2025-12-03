@@ -1,11 +1,17 @@
 package dh.tour.controllers;
 
+import dh.tour.model.Categoria;
 import dh.tour.model.Tour;
+import dh.tour.repository.CategoriaRepository;
 import dh.tour.repository.TourRepository;
+import dh.tour.service.CloudinaryService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -13,11 +19,16 @@ import java.util.List;
 public class TourController {
 
     private final TourRepository tourRepository;
+    private final CategoriaRepository categoriaRepository;
+    private final CloudinaryService cloudinaryService;
 
-    public TourController(TourRepository tourRepository) {
+    public TourController(TourRepository tourRepository,
+                          CategoriaRepository categoriaRepository,
+                          CloudinaryService cloudinaryService) {
         this.tourRepository = tourRepository;
+        this.categoriaRepository = categoriaRepository;
+        this.cloudinaryService = cloudinaryService;
     }
-
 
     // Listar todos los tours
     @GetMapping
@@ -32,58 +43,92 @@ public class TourController {
 
     // Crear tour
     @PostMapping
-    public ResponseEntity<?> createTour(@RequestBody Tour tour) {
+    public ResponseEntity<?> createTour(
+            @RequestParam String nombre,
+            @RequestParam String categoriaId,
+            @RequestParam String descripcion,
+            @RequestParam String ubicacion,
+            @RequestParam int precio,
+            @RequestParam(required = false) List<MultipartFile> imagenes) {
 
-        if (tour.getNombre() == null || tour.getNombre().trim().isEmpty()) {
-            return ResponseEntity.badRequest().body("El nombre del tour es obligatorio.");
+        // Buscar categoría
+        Categoria categoria = categoriaRepository.findById(categoriaId)
+                .orElse(null);
+        if (categoria == null)
+            return ResponseEntity.badRequest().body("Categoría no encontrada");
+
+        // Subir imágenes si hay
+        List<String> urls = new ArrayList<>();
+        if (imagenes != null) {
+            for (MultipartFile img : imagenes) {
+                if (!img.isEmpty()) {
+                    try {
+                        String url = cloudinaryService.uploadFile(img);
+                        urls.add(url);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                .body("Error subiendo las imágenes: " + e.getMessage());
+                    }
+                }
+            }
         }
 
-        if (tour.getCategoria() == null) {
-            return ResponseEntity.badRequest().body("El tour debe tener una categoría.");
-        }
-
-        if (tourRepository.existsByNombreIgnoreCase(tour.getNombre().trim())) {
-            return ResponseEntity.badRequest().body("Ya existe un tour con ese nombre.");
-        }
-
+        Tour tour = new Tour(nombre, categoria, descripcion, ubicacion, precio, urls);
         return ResponseEntity.status(HttpStatus.CREATED).body(tourRepository.save(tour));
     }
 
-    // Actualizar tour
-    @PutMapping("/{id}")
-    public ResponseEntity<?> updateTour(@PathVariable String id, @RequestBody Tour tourActualizado) {
 
+    // Actualizar tour
+    // Actualizar tour con form-data y subida de imágenes
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateTour(
+            @PathVariable String id,
+            @RequestParam String nombre,
+            @RequestParam String categoriaId,
+            @RequestParam String descripcion,
+            @RequestParam String ubicacion,
+            @RequestParam int precio,
+            @RequestParam(required = false) List<MultipartFile> imagenes) {
+
+        // Buscar tour
         return tourRepository.findById(id).map(tour -> {
 
-            if (tourActualizado.getCategoria() == null) {
-                return ResponseEntity.badRequest().body("El tour debe tener una categoría.");
+            // Buscar categoría
+            Categoria categoria = categoriaRepository.findById(categoriaId).orElse(null);
+            if (categoria == null) return ResponseEntity.badRequest().body("Categoría no encontrada");
+
+            tour.setNombre(nombre);
+            tour.setCategoria(categoria);
+            tour.setDescripcion(descripcion);
+            tour.setUbicacion(ubicacion);
+            tour.setPrecio(precio);
+
+            // Subir nuevas imágenes si se enviaron
+            if (imagenes != null && !imagenes.isEmpty()) {
+                List<String> urls = new ArrayList<>();
+                for (MultipartFile img : imagenes) {
+                    if (!img.isEmpty()) {
+                        try {
+                            String url = cloudinaryService.uploadFile(img);
+                            urls.add(url);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                    .body("Error subiendo las imágenes: " + e.getMessage());
+                        }
+                    }
+                }
+                tour.setImagenes(urls); // reemplaza las imágenes antiguas
             }
-
-            if (tourActualizado.getNombre() == null || tourActualizado.getNombre().trim().isEmpty()) {
-                return ResponseEntity.badRequest().body("El nombre del tour es obligatorio.");
-            }
-
-            boolean existe = tourRepository.existsByNombreIgnoreCaseAndIdNot(
-                    tourActualizado.getNombre().trim(), id);
-
-            if (existe) {
-                return ResponseEntity.badRequest().body("Ya existe otro tour con ese nombre.");
-            }
-
-            tour.setNombre(tourActualizado.getNombre());
-            tour.setCategoria(tourActualizado.getCategoria());
-            tour.setDescripcion(tourActualizado.getDescripcion());
-            tour.setUbicacion(tourActualizado.getUbicacion());
-            tour.setPrecio(tourActualizado.getPrecio());
-            tour.setImagenes(tourActualizado.getImagenes());
 
             return ResponseEntity.ok(tourRepository.save(tour));
 
         }).orElseGet(() ->
-                ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("Tour con id " + id + " no encontrado.")
+                ResponseEntity.status(HttpStatus.NOT_FOUND).body("Tour con id " + id + " no encontrado")
         );
     }
+
 
     // Borrar tour
     @DeleteMapping("/{id}")
