@@ -18,94 +18,81 @@ public class TourController {
         this.tourRepository = tourRepository;
     }
 
+
     // Listar todos los tours
     @GetMapping
     public ResponseEntity<List<Tour>> getTours() {
-        List<Tour> tours = tourRepository.findAll();
-        return ResponseEntity.ok(tours);
+        return ResponseEntity.ok(tourRepository.findAll());
     }
 
     @GetMapping("/categoria/{categoriaId}")
     public ResponseEntity<List<Tour>> getByCategoria(@PathVariable String categoriaId) {
-        List<Tour> tours = tourRepository.findByCategoriaId(categoriaId);
-        return ResponseEntity.ok(tours);
+        return ResponseEntity.ok(tourRepository.findByCategoriaId(categoriaId));
     }
 
-    // Crear un tour con validación de nombre único
+    // Crear tour
     @PostMapping
     public ResponseEntity<?> createTour(@RequestBody Tour tour) {
-        // Validación: nombre obligatorio
+
         if (tour.getNombre() == null || tour.getNombre().trim().isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("El nombre del tour es obligatorio.");
+            return ResponseEntity.badRequest().body("El nombre del tour es obligatorio.");
         }
 
-        // Validación: categoría obligatoria
         if (tour.getCategoria() == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("El tour debe tener una categoría.");
+            return ResponseEntity.badRequest().body("El tour debe tener una categoría.");
         }
 
-        // Validación: nombre único (ignora mayúsculas/minúsculas)
-        boolean existe = tourRepository.existsByNombreIgnoreCase(tour.getNombre().trim());
-        if (existe) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Ya existe un tour con ese nombre.");
+        if (tourRepository.existsByNombreIgnoreCase(tour.getNombre().trim())) {
+            return ResponseEntity.badRequest().body("Ya existe un tour con ese nombre.");
         }
 
-        Tour creado = tourRepository.save(tour);
-        return ResponseEntity.status(HttpStatus.CREATED).body(creado);
+        return ResponseEntity.status(HttpStatus.CREATED).body(tourRepository.save(tour));
     }
 
-    // Actualizar un tour con validación de nombre único
+    // Actualizar tour
     @PutMapping("/{id}")
     public ResponseEntity<?> updateTour(@PathVariable String id, @RequestBody Tour tourActualizado) {
-        return tourRepository.findById(id)
-                .map(tour -> {
-                    // Validación: categoría obligatoria
-                    if (tourActualizado.getCategoria() == null) {
-                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                .body("El tour debe tener una categoría.");
-                    }
 
-                    // Validación: nombre obligatorio
-                    if (tourActualizado.getNombre() == null || tourActualizado.getNombre().trim().isEmpty()) {
-                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                .body("El nombre del tour es obligatorio.");
-                    }
+        return tourRepository.findById(id).map(tour -> {
 
-                    // Validación: nombre único (excepto este mismo tour)
-                    boolean existeOtro = tourRepository.existsByNombreIgnoreCaseAndIdNot(
-                            tourActualizado.getNombre().trim(), id);
-                    if (existeOtro) {
-                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                .body("Ya existe otro tour con ese nombre.");
-                    }
+            if (tourActualizado.getCategoria() == null) {
+                return ResponseEntity.badRequest().body("El tour debe tener una categoría.");
+            }
 
-                    // Actualizar
-                    tour.setNombre(tourActualizado.getNombre());
-                    tour.setCategoria(tourActualizado.getCategoria());
-                    tour.setDescripcion(tourActualizado.getDescripcion());
-                    tour.setUbicacion(tourActualizado.getUbicacion());
-                    tour.setPrecio(tourActualizado.getPrecio());
-                    tour.setImagenes(tourActualizado.getImagenes());
+            if (tourActualizado.getNombre() == null || tourActualizado.getNombre().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("El nombre del tour es obligatorio.");
+            }
 
-                    Tour actualizado = tourRepository.save(tour);
-                    return ResponseEntity.ok(actualizado);
-                })
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("Tour con id " + id + " no encontrado."));
+            boolean existe = tourRepository.existsByNombreIgnoreCaseAndIdNot(
+                    tourActualizado.getNombre().trim(), id);
+
+            if (existe) {
+                return ResponseEntity.badRequest().body("Ya existe otro tour con ese nombre.");
+            }
+
+            tour.setNombre(tourActualizado.getNombre());
+            tour.setCategoria(tourActualizado.getCategoria());
+            tour.setDescripcion(tourActualizado.getDescripcion());
+            tour.setUbicacion(tourActualizado.getUbicacion());
+            tour.setPrecio(tourActualizado.getPrecio());
+            tour.setImagenes(tourActualizado.getImagenes());
+
+            return ResponseEntity.ok(tourRepository.save(tour));
+
+        }).orElseGet(() ->
+                ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("Tour con id " + id + " no encontrado.")
+        );
     }
 
-    // Eliminar un tour
+    // Borrar tour
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteTour(@PathVariable String id) {
-        if (tourRepository.existsById(id)) {
-            tourRepository.deleteById(id);
-            return ResponseEntity.ok("Tour con id " + id + " eliminado correctamente");
-        } else {
+        if (!tourRepository.existsById(id)) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body("Tour con id " + id + " no encontrado, no se pudo eliminar");
+                    .body("Tour con id " + id + " no encontrado");
         }
+        tourRepository.deleteById(id);
+        return ResponseEntity.ok("Tour eliminado correctamente");
     }
 }

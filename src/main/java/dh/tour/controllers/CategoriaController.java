@@ -2,14 +2,12 @@ package dh.tour.controllers;
 
 import dh.tour.model.Categoria;
 import dh.tour.repository.CategoriaRepository;
+import dh.tour.service.CloudinaryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 
 @RestController
@@ -17,9 +15,12 @@ import java.util.List;
 public class CategoriaController {
 
     private final CategoriaRepository categoriaRepository;
+    private final CloudinaryService cloudinaryService;
 
-    public CategoriaController(CategoriaRepository categoriaRepository) {
+    public CategoriaController(CategoriaRepository categoriaRepository,
+                               CloudinaryService cloudinaryService) {
         this.categoriaRepository = categoriaRepository;
+        this.cloudinaryService = cloudinaryService;
     }
 
     @GetMapping
@@ -27,7 +28,6 @@ public class CategoriaController {
         return ResponseEntity.ok(categoriaRepository.findAll());
     }
 
-    // Método correcto para crear categoría con imagen obligatoria
     @PostMapping
     public ResponseEntity<?> crearCategoria(
             @RequestParam String nombre,
@@ -40,42 +40,28 @@ public class CategoriaController {
             return ResponseEntity.badRequest().body("La categoría debe tener al menos una imagen.");
         }
 
-        String pathImagen1 = guardarImagen(imagen1);
-        String pathImagen2 = (imagen2 != null && !imagen2.isEmpty()) ? guardarImagen(imagen2) : null;
-        String pathImagen3 = (imagen3 != null && !imagen3.isEmpty()) ? guardarImagen(imagen3) : null;
-
-        Categoria nueva = new Categoria(nombre, descripcion, pathImagen1, pathImagen2, pathImagen3);
-        categoriaRepository.save(nueva);
-
-        return ResponseEntity.ok(nueva);
-    }
-
-
-    private String guardarImagen(MultipartFile imagen) {
         try {
-            // Carpeta donde se guardan las imágenes
-            String uploadDir = "C:/Users/Cynthia/Documents/DH/tour/uploads/";
+            String pathImagen1 = cloudinaryService.uploadFile(imagen1);
+            String pathImagen2 = (imagen2 != null && !imagen2.isEmpty())
+                    ? cloudinaryService.uploadFile(imagen2)
+                    : null;
+            String pathImagen3 = (imagen3 != null && !imagen3.isEmpty())
+                    ? cloudinaryService.uploadFile(imagen3)
+                    : null;
 
-            // Nombre único para evitar conflictos
-            String fileName = System.currentTimeMillis() + "_" + imagen.getOriginalFilename();
+            Categoria nueva = new Categoria(nombre, descripcion, pathImagen1, pathImagen2, pathImagen3);
+            categoriaRepository.save(nueva);
 
-            // Ruta física completa
-            Path filePath = Paths.get(uploadDir).resolve(fileName);
+            return ResponseEntity.ok(nueva);
 
-            // Guardar el archivo
-            Files.write(filePath, imagen.getBytes());
-
-            // URL que el frontend puede usar
-            return "/uploads/" + fileName;
         } catch (IOException e) {
             e.printStackTrace();
-            return "";
+            return ResponseEntity.internalServerError().body("Error subiendo imágenes.");
         }
     }
 
-
     @PutMapping("/{id}")
-    public ResponseEntity<Categoria> update(
+    public ResponseEntity<?> update(
             @PathVariable String id,
             @RequestParam String nombre,
             @RequestParam(required = false) String descripcion,
@@ -84,24 +70,30 @@ public class CategoriaController {
             @RequestParam(required = false) MultipartFile imagen3) {
 
         return categoriaRepository.findById(id).map(c -> {
+
             c.setNombre(nombre);
             c.setDescripcion(descripcion);
 
-            if (imagen1 != null && !imagen1.isEmpty()) {
-                c.setImagen1(guardarImagen(imagen1));
-            }
-            if (imagen2 != null && !imagen2.isEmpty()) {
-                c.setImagen2(guardarImagen(imagen2));
-            }
-            if (imagen3 != null && !imagen3.isEmpty()) {
-                c.setImagen3(guardarImagen(imagen3));
+            try {
+                if (imagen1 != null && !imagen1.isEmpty()) {
+                    c.setImagen1(cloudinaryService.uploadFile(imagen1));
+                }
+                if (imagen2 != null && !imagen2.isEmpty()) {
+                    c.setImagen2(cloudinaryService.uploadFile(imagen2));
+                }
+                if (imagen3 != null && !imagen3.isEmpty()) {
+                    c.setImagen3(cloudinaryService.uploadFile(imagen3));
+                }
+
+                return ResponseEntity.ok(categoriaRepository.save(c));
+
+            } catch (IOException e) {
+                e.printStackTrace();
+                return ResponseEntity.internalServerError().body("Error subiendo imágenes.");
             }
 
-            return ResponseEntity.ok(categoriaRepository.save(c));
         }).orElse(ResponseEntity.notFound().build());
     }
-
-
 
     @DeleteMapping("/{id}")
     public ResponseEntity<String> delete(@PathVariable String id) {
