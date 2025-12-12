@@ -103,4 +103,52 @@ public class CategoriaController {
         }
         return ResponseEntity.notFound().build();
     }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<?> actualizarParcial(
+            @PathVariable String id,
+            @RequestParam(required = false) String nombre,
+            @RequestParam(required = false) String descripcion,
+            @RequestParam(required = false) MultipartFile imagen1,
+            @RequestParam(required = false) MultipartFile imagen2,
+            @RequestParam(required = false) MultipartFile imagen3
+    ) {
+
+        return categoriaRepository.findById(id).map(categoria -> {
+
+            try {
+                // Actualiza solo lo que viene
+                if (nombre != null && !nombre.isEmpty()) {
+                    categoria.setNombre(nombre);
+                }
+
+                if (descripcion != null && !descripcion.isEmpty()) {
+                    categoria.setDescripcion(descripcion);
+                }
+
+                if (imagen1 != null && !imagen1.isEmpty()) {
+                    categoria.setImagen1(cloudinaryService.uploadFile(imagen1));
+                }
+
+                if (imagen2 != null && !imagen2.isEmpty()) {
+                    categoria.setImagen2(cloudinaryService.uploadFile(imagen2));
+                }
+
+                if (imagen3 != null && !imagen3.isEmpty()) {
+                    categoria.setImagen3(cloudinaryService.uploadFile(imagen3));
+                }
+
+                categoriaRepository.save(categoria);
+                return ResponseEntity.ok(categoria);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+                return ResponseEntity.internalServerError().body("Error al actualizar imágenes");
+            }
+
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+
+
 }
