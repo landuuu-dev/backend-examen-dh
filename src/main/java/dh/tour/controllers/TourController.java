@@ -140,4 +140,69 @@ public class TourController {
         tourRepository.deleteById(id);
         return ResponseEntity.ok("Tour eliminado correctamente");
     }
+
+    //patch actualizar
+    @PatchMapping("/{id}")
+    public ResponseEntity<?> actualizarParcial(
+            @PathVariable String id,
+            @RequestParam(required = false) String nombre,
+            @RequestParam(required = false) String categoriaId,
+            @RequestParam(required = false) String descripcion,
+            @RequestParam(required = false) String ubicacion,
+            @RequestParam(required = false) Integer precio,
+            @RequestParam(required = false) List<MultipartFile> imagenes
+    ) {
+
+        return tourRepository.findById(id).map(tour -> {
+
+            try {
+                if (nombre != null && !nombre.isEmpty()) {
+                    tour.setNombre(nombre);
+                }
+
+                if (descripcion != null && !descripcion.isEmpty()) {
+                    tour.setDescripcion(descripcion);
+                }
+
+                if (ubicacion != null && !ubicacion.isEmpty()) {
+                    tour.setUbicacion(ubicacion);
+                }
+
+                if (precio != null) {
+                    tour.setPrecio(precio);
+                }
+
+                if (categoriaId != null && !categoriaId.isEmpty()) {
+                    Categoria categoria = categoriaRepository.findById(categoriaId).orElse(null);
+                    if (categoria == null) {
+                        return ResponseEntity.badRequest().body("Categoría no encontrada");
+                    }
+                    tour.setCategoria(categoria);
+                }
+
+                // Reemplazar imágenes SOLO si se envían
+                if (imagenes != null && !imagenes.isEmpty()) {
+                    List<String> urls = new ArrayList<>();
+                    for (MultipartFile img : imagenes) {
+                        if (!img.isEmpty()) {
+                            String url = cloudinaryService.uploadFile(img);
+                            urls.add(url);
+                        }
+                    }
+                    if (!urls.isEmpty()) {
+                        tour.setImagenes(urls);
+                    }
+                }
+
+                tourRepository.save(tour);
+                return ResponseEntity.ok(tour);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+                return ResponseEntity.internalServerError().body("Error al actualizar el tour");
+            }
+
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
 }
