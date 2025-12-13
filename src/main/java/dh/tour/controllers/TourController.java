@@ -14,6 +14,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+@CrossOrigin(
+        origins = "http://localhost:5173",
+        allowedHeaders = "*",
+        methods = { RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT,
+                RequestMethod.PATCH, RequestMethod.DELETE, RequestMethod.OPTIONS }
+)
+
 @RestController
 @RequestMapping("/tours")
 public class TourController {
