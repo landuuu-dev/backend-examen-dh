@@ -3,6 +3,7 @@ package dh.tour.config;
 import dh.tour.config.JwtFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -32,16 +33,17 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         // Endpoints públicos
-                        .requestMatchers("/auth/**", "/usuarios").permitAll()
+                        .requestMatchers("/", "/auth/**").permitAll()
 
-                        // Usuarios logueados pueden actualizar su cuenta
-                        .requestMatchers("/usuarios/*").authenticated()  // PUT /usuarios/{id}
+                        // Solo admins pueden GET todos los usuarios
+                        .requestMatchers(HttpMethod.GET, "/usuarios").hasAnyRole("ADMIN", "SUPER_ADMIN")
 
-                        // Favoritos: usuarios logueados pueden acceder
-                        .requestMatchers("/usuarios/*/favoritos/**").authenticated()  // POST y DELETE favoritos
+                        // Usuarios logueados pueden actualizar su cuenta (PUT /usuarios/{id})
+                        .requestMatchers(HttpMethod.PUT, "/usuarios/*").authenticated()
 
-                        // Solo admins pueden GET y DELETE todos los usuarios
-                        .requestMatchers("/usuarios").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        // Favoritos: usuarios logueados pueden acceder (POST y DELETE)
+                        .requestMatchers(HttpMethod.POST, "/usuarios/*/favoritos/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/usuarios/*/favoritos/**").authenticated()
 
                         // Cualquier otro endpoint requiere autenticación
                         .anyRequest().authenticated()
