@@ -1,52 +1,32 @@
 package dh.tour.service;
 
+import dh.tour.config.security.CustomUserDetails;
 import dh.tour.model.Usuario;
+import dh.tour.repository.UsuarioRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-import java.util.Collection;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+import java.util.List;
 
-public class CustomUserDetails implements UserDetails {
+@Service
+public class CustomUserDetailsService implements UserDetailsService {
 
-    private String id;
-    private String username; // correo
-    private String password;
-    private Collection<? extends GrantedAuthority> authorities;
+    @Autowired
+    private UsuarioRepository usuarioRepository;
 
-    public CustomUserDetails(Usuario usuario, Collection<? extends GrantedAuthority> authorities) {
-        this.id = usuario.getId();
-        this.username = usuario.getCorreo();
-        this.password = usuario.getPassword();
-        this.authorities = authorities;
+    @Override
+    public UserDetails loadUserByUsername(String correo) throws UsernameNotFoundException {
+        Usuario usuario = usuarioRepository.findByCorreo(correo)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
+
+        List<GrantedAuthority> authorities = List.of(
+                new SimpleGrantedAuthority("ROLE_" + usuario.getRol().name())
+        );
+
+        return new CustomUserDetails(usuario, authorities);
     }
-
-    public String getId() {
-        return id;
-    }
-
-    @Override
-    public String getUsername() {
-        return username;
-    }
-
-    @Override
-    public String getPassword() {
-        return password;
-    }
-
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return authorities;
-    }
-
-    @Override
-    public boolean isAccountNonExpired() { return true; }
-
-    @Override
-    public boolean isAccountNonLocked() { return true; }
-
-    @Override
-    public boolean isCredentialsNonExpired() { return true; }
-
-    @Override
-    public boolean isEnabled() { return true; }
 }

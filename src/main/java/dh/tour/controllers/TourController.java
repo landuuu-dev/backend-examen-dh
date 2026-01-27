@@ -7,6 +7,7 @@ import dh.tour.repository.TourRepository;
 import dh.tour.service.CloudinaryService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -49,6 +50,7 @@ public class TourController {
     }
 
     // Crear tour
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PostMapping
     public ResponseEntity<?> createTour(
             @RequestParam String nombre,
@@ -88,6 +90,7 @@ public class TourController {
 
     // Actualizar tour
     // Actualizar tour con form-data y subida de imágenes
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<?> updateTour(
             @PathVariable String id,
@@ -138,6 +141,7 @@ public class TourController {
 
 
     // Borrar tour
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteTour(@PathVariable String id) {
         if (!tourRepository.existsById(id)) {
@@ -149,6 +153,7 @@ public class TourController {
     }
 
     //patch actualizar
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PatchMapping("/{id}")
     public ResponseEntity<?> actualizarParcial(
             @PathVariable String id,

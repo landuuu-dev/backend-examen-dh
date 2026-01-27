@@ -1,4 +1,7 @@
 package dh.tour.model;
 
-public class Rol {
+public enum Rol {
+    USER,
+    ADMIN,
+    SUPER_ADMIN
 }

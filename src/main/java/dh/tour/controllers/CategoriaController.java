@@ -4,6 +4,7 @@ import dh.tour.model.Categoria;
 import dh.tour.repository.CategoriaRepository;
 import dh.tour.service.CloudinaryService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -34,6 +35,7 @@ public class CategoriaController {
         return ResponseEntity.ok(categoriaRepository.findAll());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PostMapping
     public ResponseEntity<?> crearCategoria(
             @RequestParam String nombre,
@@ -66,6 +68,7 @@ public class CategoriaController {
         }
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<?> update(
             @PathVariable String id,
@@ -101,6 +104,7 @@ public class CategoriaController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<String> delete(@PathVariable String id) {
         if (categoriaRepository.existsById(id)) {
@@ -110,6 +114,7 @@ public class CategoriaController {
         return ResponseEntity.notFound().build();
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PatchMapping("/{id}")
     public ResponseEntity<?> actualizarParcial(
             @PathVariable String id,
