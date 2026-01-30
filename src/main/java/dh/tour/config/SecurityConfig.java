@@ -24,32 +24,33 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> {})
+                .cors(cors -> {}) // Si usas el frontend, después ajustamos esto más a fondo
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // Endpoints públicos
+                        // 1. Endpoints Públicos
                         .requestMatchers("/", "/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/tours/**").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // IMPORTANTE para evitar 403 en navegadores
 
-                        // Solo admins pueden GET todos los usuarios
+                        // 2. Reglas de ADMIN/SUPER_ADMIN (Quitamos el comentario y usamos nombres limpios)
+                        // Usamos hasAnyRole que internamente busca "ROLE_" + el nombre
+                        .requestMatchers(HttpMethod.POST, "/tours").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/usuarios").hasAnyRole("ADMIN", "SUPER_ADMIN")
 
-                        // Usuarios logueados pueden actualizar su cuenta (PUT /usuarios/{id})
-                        .requestMatchers(HttpMethod.PUT, "/usuarios/*").authenticated()
+                        // 3. Reglas de Usuario común o cualquier logueado
+                        .requestMatchers(HttpMethod.POST, "/tours/*/inscribir").authenticated()
+                        .requestMatchers("/usuarios/**").authenticated()
 
-                        // Favoritos: usuarios logueados pueden acceder (POST y DELETE)
-                        .requestMatchers(HttpMethod.POST, "/usuarios/*/favoritos/**").authenticated()
-                        .requestMatchers(HttpMethod.DELETE, "/usuarios/*/favoritos/**").authenticated()
-
-                        // Cualquier otro endpoint requiere autenticación
+                        // 4. Todo lo demás requiere login
                         .anyRequest().authenticated()
                 )
-
-
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

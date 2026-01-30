@@ -3,6 +3,7 @@ import dh.tour.config.security.CustomUserDetails;
 import dh.tour.dto.UsuarioResponse;
 import dh.tour.model.Tour;
 import dh.tour.model.Usuario;
+import dh.tour.repository.InscripcionRepository;
 import dh.tour.repository.UsuarioRepository;
 import dh.tour.service.UsuarioService;
 import org.springframework.http.HttpStatus;
@@ -11,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -19,10 +21,12 @@ public class UsuarioController {
 
     private final UsuarioRepository usuarioRepository;
     private final UsuarioService usuarioService;
+    private final InscripcionRepository inscripcionRepository;
 
-    public UsuarioController(UsuarioRepository usuarioRepository, UsuarioService usuarioService) {
+    public UsuarioController(UsuarioRepository usuarioRepository, UsuarioService usuarioService, InscripcionRepository inscripcionRepository) {
         this.usuarioRepository = usuarioRepository;
         this.usuarioService = usuarioService;
+        this.inscripcionRepository = inscripcionRepository;
     }
 
     // 🔹 Obtener todos los usuarios
@@ -124,6 +128,19 @@ public class UsuarioController {
         return ResponseEntity.ok(favoritos);
     }
 
+    @GetMapping("/{id}/mis-inscripciones")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> misInscripciones(
+            @PathVariable String id,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+
+        // Seguridad: El usuario solo puede ver sus propias inscripciones
+        if (!principal.getId().equals(id)) {
+            return ResponseEntity.status(403).body("No puedes ver inscripciones de otros");
+        }
+
+        return ResponseEntity.ok(inscripcionRepository.findByUsuarioId(id));
+    }
 
 
 }
