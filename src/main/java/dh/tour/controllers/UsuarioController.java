@@ -46,7 +46,6 @@ public class UsuarioController {
 
 
     // 🔹 Actualizar usuario
-    // 🔹 Actualizar usuario
     @PutMapping("/{id}")
     @PreAuthorize("isAuthenticated()") // solo verifica que esté autenticado
     public ResponseEntity<String> actualizarUsuario(
@@ -140,6 +139,28 @@ public class UsuarioController {
         }
 
         return ResponseEntity.ok(inscripcionRepository.findByUsuarioId(id));
+    }
+
+    // 🔹 Actualización parcial (PATCH) para el usuario
+    @PatchMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> actualizarParcial(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> campos,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+
+        // Seguridad: El usuario solo puede editar su propio perfil
+        // Los ADMIN podrían editar a cualquiera si quitas esta validación
+        if (!principal.getId().equals(id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No tienes permiso para editar este perfil");
+        }
+
+        try {
+            Usuario usuarioActualizado = usuarioService.actualizarParcial(id, campos);
+            return ResponseEntity.ok("Perfil actualizado correctamente");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 
 

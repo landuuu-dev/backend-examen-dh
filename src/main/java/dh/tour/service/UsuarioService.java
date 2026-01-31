@@ -9,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class UsuarioService {
@@ -178,6 +179,30 @@ public class UsuarioService {
         usuario.setResetToken(null); // Limpiar token usado
         usuario.setResetTokenExpiration(null);
         usuarioRepository.save(usuario);
+    }
+
+    public Usuario actualizarParcial(String id, Map<String, Object> campos) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        campos.forEach((llave, valor) -> {
+            switch (llave) {
+                case "nombre":
+                    usuario.setNombre((String) valor);
+                    break;
+                case "correo":
+                    usuario.setCorreo((String) valor);
+                    break;
+                case "password":
+                    if (valor != null && !((String) valor).isEmpty()) {
+                        usuario.setPassword(passwordEncoder.encode((String) valor));
+                    }
+                    break;
+                // No permitimos cambiar el ROL por aquí por seguridad
+            }
+        });
+
+        return usuarioRepository.save(usuario);
     }
 }
 
