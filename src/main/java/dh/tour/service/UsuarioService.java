@@ -1,5 +1,5 @@
 package dh.tour.service;
-
+import org.springframework.dao.DuplicateKeyException;
 import dh.tour.model.Rol;
 import dh.tour.model.Tour;
 import dh.tour.model.Usuario;
@@ -15,18 +15,29 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final TourRepository tourRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
 
-    public UsuarioService(UsuarioRepository usuarioRepository, TourRepository tourRepository, PasswordEncoder passwordEncoder) {
+    public UsuarioService(UsuarioRepository usuarioRepository, TourRepository tourRepository, PasswordEncoder passwordEncoder, EmailService emailService) {
         this.usuarioRepository = usuarioRepository;
         this.tourRepository = tourRepository;
         this.passwordEncoder = passwordEncoder;
+        this.emailService = emailService;
     }
     public Usuario registrar(Usuario usuario) {
-        usuario.setPassword(
-                passwordEncoder.encode(usuario.getPassword())
-        );
-        return usuarioRepository.save(usuario);
+        try {
+            usuario.setPassword(
+                    passwordEncoder.encode(usuario.getPassword())
+            );
+
+            return usuarioRepository.save(usuario);
+        } catch (DuplicateKeyException e) {
+            // Aquí capturamos el error de MongoDB y lo traducimos
+            System.err.println("⚠️ INTENTO DE REGISTRO FALLIDO: El correo " + usuario.getCorreo() + " ya existe.");
+
+            // Lanzamos una excepción personalizada o una de Spring para que el Controller sepa qué pasó
+            throw new RuntimeException("El usuario con este correo ya está registrado.");
+        }
     }
 
 
@@ -113,19 +124,61 @@ public class UsuarioService {
             return usuarioRepository.save(usuario);
         }
 
+    // En dh.tour.service.UsuarioService
     public List<Tour> obtenerFavoritos(String usuarioId) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-        // Si no hay favoritos, devuelve lista vacía
         if (usuario.getFavoritos() == null || usuario.getFavoritos().isEmpty()) {
             return List.of();
         }
 
-        // Buscar todos los tours por IDs
-        return tourRepository.findAllById(usuario.getFavoritos());
+        // 1. Buscamos los tours reales en la DB usando los IDs del usuario
+        List<Tour> toursExistentes = tourRepository.findAllById(usuario.getFavoritos());
+
+        // 2. Si la lista de tours encontrados es más corta que la de IDs guardados...
+        if (toursExistentes.size() < usuario.getFavoritos().size()) {
+            // Limpiamos la lista del usuario dejando solo los que sí existen
+            List<String> idsLimpios = toursExistentes.stream()
+                    .map(Tour::getId)
+                    .toList();
+            usuario.setFavoritos(new java.util.ArrayList<>(idsLimpios));
+            usuarioRepository.save(usuario);
+            System.out.println("🧹 Favoritos limpiados: se eliminaron IDs de tours borrados.");
+        }
+
+        return toursExistentes;
     }
 
+    // En dh.tour.service.UsuarioService.java agrega:
+
+    public void solicitarRecuperacion(String correo) {
+        Usuario usuario = usuarioRepository.findByCorreo(correo)
+                .orElseThrow(() -> new RuntimeException("Correo no encontrado"));
+
+        String token = java.util.UUID.randomUUID().toString();
+        usuario.setResetToken(token);
+        usuario.setResetTokenExpiration(java.time.LocalDateTime.now().plusMinutes(15));
+        usuarioRepository.save(usuario);
+
+        emailService.enviarEmailRecuperacion(correo, token);
+    }
+
+    public void completarRecuperacion(String token, String nuevaPassword) {
+        Usuario usuario = usuarioRepository.findAll().stream()
+                .filter(u -> token.equals(u.getResetToken()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Token inválido"));
+
+        if (usuario.getResetTokenExpiration().isBefore(java.time.LocalDateTime.now())) {
+            throw new RuntimeException("El token ha expirado");
+        }
+
+        usuario.setPassword(passwordEncoder.encode(nuevaPassword));
+        usuario.setResetToken(null); // Limpiar token usado
+        usuario.setResetTokenExpiration(null);
+        usuarioRepository.save(usuario);
+    }
 }
 
 

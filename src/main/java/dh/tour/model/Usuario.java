@@ -3,6 +3,7 @@ package dh.tour.model;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,6 +16,9 @@ public class Usuario {
     private String password;
     private Rol rol;
     private List<String> favoritos = new ArrayList<>();
+    private String resetToken;
+    private java.time.LocalDateTime resetTokenExpiration;
+
 
     public Usuario() {
     }
@@ -78,5 +82,21 @@ public class Usuario {
 
     public void setFavoritos(List<String> favoritos) {
         this.favoritos = favoritos;
+    }
+
+    public String getResetToken() {
+        return resetToken;
+    }
+
+    public void setResetToken(String resetToken) {
+        this.resetToken = resetToken;
+    }
+
+    public LocalDateTime getResetTokenExpiration() {
+        return resetTokenExpiration;
+    }
+
+    public void setResetTokenExpiration(LocalDateTime resetTokenExpiration) {
+        this.resetTokenExpiration = resetTokenExpiration;
     }
 }

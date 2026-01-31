@@ -5,6 +5,7 @@ import dh.tour.dto.LoginRequest;
 import dh.tour.dto.RegisterRequest;
 import dh.tour.model.Rol;
 import dh.tour.model.Usuario;
+import dh.tour.service.EmailService;
 import dh.tour.service.UsuarioService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -23,11 +24,13 @@ public class AuthController {
 
     private final UsuarioService usuarioService;
     private final JwtUtil jwtUtil;
+    private final EmailService emailService;
 
 
-    public AuthController(UsuarioService usuarioService, JwtUtil jwtUtil) {
+    public AuthController(UsuarioService usuarioService, JwtUtil jwtUtil, EmailService emailService) {
         this.usuarioService = usuarioService;
         this.jwtUtil = jwtUtil;
+        this.emailService = emailService;
     }
 
     @PostMapping("/login")
@@ -58,10 +61,24 @@ public class AuthController {
 
 
         Usuario creado = usuarioService.registrar(usuario);
+        emailService.enviarEmailBienvenida(creado.getCorreo(), creado.getNombre());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(creado);
     }
 
+// En dh.tour.controllers.AuthController.java
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
+        usuarioService.solicitarRecuperacion(request.get("correo"));
+        return ResponseEntity.ok(Map.of("message", "Email de recuperación enviado"));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
+        usuarioService.completarRecuperacion(request.get("token"), request.get("password"));
+        return ResponseEntity.ok(Map.of("message", "Contraseña actualizada con éxito"));
+    }
 
 
 }
