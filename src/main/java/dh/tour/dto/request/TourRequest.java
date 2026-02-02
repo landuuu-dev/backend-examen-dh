@@ -1,5 +1,6 @@
 package dh.tour.dto.request;
 
+import dh.tour.model.EstadoTour;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 import java.time.LocalDate;
@@ -20,6 +21,9 @@ public class TourRequest {
 
     @NotBlank(message = "La ubicación es obligatoria")
     private String ubicacion;
+
+    @NotNull(message = "El estado es obligatorio y debe ser ACTIVO, AGOTADO o CANCELADO")
+    private EstadoTour estado;
 
     @Positive(message = "El precio debe ser mayor a cero")
     private int precio;

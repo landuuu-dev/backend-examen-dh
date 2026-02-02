@@ -33,8 +33,6 @@ public class AuthController {
     private final UsuarioService usuarioService;
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
-    private final RedisTemplate redisTemplate;
-
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
@@ -97,20 +95,18 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpServletRequest request) {
+    public ResponseEntity<MensajeResponse> logout(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
 
-            // Calculamos cuánto tiempo le queda de vida al token
-            long remainingTime = jwtUtil.getRemainingTime(token);
+            // Llamas al servicio que ya tenías creado
+            usuarioService.logout(token);
 
-            // Lo guardamos en Redis con ese tiempo de vida
-            redisTemplate.opsForValue().set("blacklist_token:" + token, "revoked", remainingTime, TimeUnit.MILLISECONDS);
-
-            return ResponseEntity.ok(Map.of("mensaje", "Sesión cerrada con éxito"));
+            return ResponseEntity.ok(new MensajeResponse("Sesión cerrada con éxito"));
         }
-        return ResponseEntity.badRequest().body("Token no proporcionado");
+        // Aquí podrías lanzar una excepción propia en lugar de un badRequest manual
+        return ResponseEntity.badRequest().body(new MensajeResponse("Token no proporcionado"));
     }
 
 

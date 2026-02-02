@@ -1,5 +1,6 @@
 package dh.tour.service;
 
+import dh.tour.model.EstadoTour;
 import dh.tour.model.Inscripcion;
 import dh.tour.model.Tour;
 import dh.tour.repository.InscripcionRepository;
@@ -18,7 +19,7 @@ public class InscripcionService {
     private final InscripcionRepository inscripcionRepository;
     private final TourRepository tourRepository;
 
-    @Transactional // <--- Esto asegura que si algo falla, no se guarde nada a medias
+    @Transactional
     public String inscribirUsuario(String tourId, String usuarioId, String username) {
         Tour tour = tourRepository.findById(tourId)
                 .orElseThrow(() -> new RuntimeException("Tour no encontrado"));
@@ -27,16 +28,15 @@ public class InscripcionService {
             throw new RuntimeException("Ya estás inscrito en este tour");
         }
 
-        // 1. Validar primero si el tour está marcado como disponible
-        if (!tour.isDisponible()) {
-            throw new RuntimeException("El tour no está disponible actualmente");
+        // 1. Validar si el estado NO es ACTIVO (Enum en lugar de booleano)
+        if (tour.getEstado() != EstadoTour.ACTIVO) {
+            throw new RuntimeException("El tour no está disponible o ha sido cancelado");
         }
 
-        // 2. Validar cupos (Solo si es menor o igual a 0)
+        // 2. Validar cupos
         if (tour.getCuposDisponibles() <= 0) {
             throw new RuntimeException("Lo sentimos, ya no quedan cupos");
         }
-
 
         Inscripcion inscripcion = new Inscripcion();
         inscripcion.setTourId(tour.getId());
@@ -47,11 +47,14 @@ public class InscripcionService {
 
         inscripcionRepository.save(inscripcion);
 
+        // Restar cupo
         tour.setCuposDisponibles(tour.getCuposDisponibles() - 1);
-        // Si después de restar queda en 0, lo marcamos como no disponible
+
+        // 3. Si llega a 0, cambiamos el estado a AGOTADO
         if (tour.getCuposDisponibles() == 0) {
-            tour.setDisponible(false);
+            tour.setEstado(EstadoTour.AGOTADO);
         }
+
         tourRepository.save(tour);
         return "Inscripción exitosa";
     }
@@ -62,10 +65,14 @@ public class InscripcionService {
 
         inscripcionRepository.delete(inscripcion);
 
-        // Opcional: Devolver el cupo al tour
+        // Devolver el cupo y reactivar si estaba agotado
         tourRepository.findById(tourId).ifPresent(t -> {
             t.setCuposDisponibles(t.getCuposDisponibles() + 1);
-            t.setDisponible(true);
+
+            // Si estaba AGOTADO y ahora recuperó un cupo, lo ponemos ACTIVO de nuevo
+            if (t.getEstado() == EstadoTour.AGOTADO) {
+                t.setEstado(EstadoTour.ACTIVO);
+            }
             tourRepository.save(t);
         });
     }

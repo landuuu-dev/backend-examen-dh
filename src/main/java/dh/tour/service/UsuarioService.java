@@ -1,6 +1,8 @@
 package dh.tour.service;
 import dh.tour.config.JwtUtil;
 import dh.tour.dto.response.UsuarioResponse;
+import dh.tour.exceptions.OperationNotAllowedException;
+import dh.tour.exceptions.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import dh.tour.model.Rol;
@@ -27,7 +29,7 @@ public class UsuarioService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final JwtUtil jwtUtil;
-    private final RedisTemplate redisTemplate;
+    private final RedisTemplate <String, Object> redisTemplate;
 
     public Usuario registrar(Usuario usuario) {
         try {
@@ -41,16 +43,16 @@ public class UsuarioService {
 
             return usuarioRepository.save(usuario);
         } catch (DuplicateKeyException e) {
-            throw new RuntimeException("El usuario con este correo ya está registrado.");
+            throw new ResourceNotFoundException("El usuario con este correo ya está registrado.");
         }
     }
 
     public Usuario login(String correo, String password) {
         Usuario usuario = usuarioRepository.findByCorreo(correo)
-                .orElseThrow(() -> new RuntimeException("Credenciales incorrectas"));
+                .orElseThrow(() -> new ResourceNotFoundException("Credenciales incorrectas"));
 
         if (!passwordEncoder.matches(password, usuario.getPassword())) {
-            throw new RuntimeException("Credenciales incorrectas");
+            throw new ResourceNotFoundException("Credenciales incorrectas");
         }
 
         return usuario;
@@ -58,7 +60,7 @@ public class UsuarioService {
 
     public void solicitarRecuperacion(String correo) {
         Usuario usuario = usuarioRepository.findByCorreo(correo)
-                .orElseThrow(() -> new RuntimeException("Correo no encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Correo no encontrado"));
 
         String token = UUID.randomUUID().toString();
         usuario.setResetToken(token);
@@ -69,17 +71,14 @@ public class UsuarioService {
     }
 
     public void completarRecuperacion(String token, String nuevaPassword) {
-        // Buscamos directamente por token en lugar de filtrar toda la lista en memoria
-        Usuario usuario = usuarioRepository.findAll().stream()
-                .filter(u -> token.equals(u.getResetToken()))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Token inválido o no encontrado"));
+        // Buscamos directamente en MongoDB por el campo resetToken
+        Usuario usuario = usuarioRepository.findByResetToken(token)
+                .orElseThrow(() -> new ResourceNotFoundException("Token inválido o no encontrado"));
 
         if (usuario.getResetTokenExpiration().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("El token ha expirado");
+            throw new ResourceNotFoundException("El token ha expirado");
         }
 
-        // Protegemos la nueva contraseña
         usuario.setPassword(passwordEncoder.encode(nuevaPassword));
         usuario.setResetToken(null);
         usuario.setResetTokenExpiration(null);
@@ -89,10 +88,10 @@ public class UsuarioService {
     public void promoteToAdmin(String userId) {
 
         Usuario usuario = usuarioRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
         if (usuario.getRol() == Rol.SUPER_ADMIN) {
-            throw new RuntimeException("No se puede modificar al SUPER_ADMIN");
+            throw new ResourceNotFoundException("No se puede modificar al SUPER_ADMIN");
         }
 
         usuario.setRol(Rol.ADMIN);
@@ -101,7 +100,7 @@ public class UsuarioService {
 
     public Usuario actualizar(String id, Usuario usuarioActualizado) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
         usuario.setNombre(usuarioActualizado.getNombre());
         usuario.setCorreo(usuarioActualizado.getCorreo());
@@ -116,28 +115,28 @@ public class UsuarioService {
 
     public void eliminarUsuario(String id) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
         if (usuario.getRol() == Rol.SUPER_ADMIN) {
-            throw new RuntimeException("No se puede eliminar a un SUPER_ADMIN");
+            throw new OperationNotAllowedException("No se puede eliminar a un SUPER_ADMIN");
         }
 
         usuarioRepository.deleteById(id);
     }
     public Usuario buscarPorCorreo(String correo) {
         return usuarioRepository.findByCorreo(correo)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con correo: " + correo));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con correo: " + correo));
     }
 
     public Usuario buscarPorId(String id) {
         return usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
     }
 
 
     public Usuario agregarFavorito(String usuarioId, String tourId) {
             Usuario usuario = usuarioRepository.findById(usuarioId)
-                    .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
             if (!usuario.getFavoritos().contains(tourId)) {
                 usuario.getFavoritos().add(tourId);
@@ -148,7 +147,7 @@ public class UsuarioService {
 
         public Usuario quitarFavorito(String usuarioId, String tourId) {
             Usuario usuario = usuarioRepository.findById(usuarioId)
-                    .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
             usuario.getFavoritos().remove(tourId);
 
@@ -158,7 +157,7 @@ public class UsuarioService {
     // En dh.tour.service.UsuarioService
     public List<Tour> obtenerFavoritos(String usuarioId) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
         if (usuario.getFavoritos() == null || usuario.getFavoritos().isEmpty()) {
             return List.of();
@@ -185,7 +184,7 @@ public class UsuarioService {
 
     public Usuario actualizarParcial(String id, Map<String, Object> campos) {
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
         campos.forEach((llave, valor) -> {
             switch (llave) {

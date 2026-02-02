@@ -27,7 +27,7 @@ public class Tour {
     private int cuposDisponibles;
 
     @Builder.Default
-    private boolean disponible = true;
+    private EstadoTour estado = EstadoTour.ACTIVO;
 
     @Builder.Default
     private List<String> imagenes = new ArrayList<>();

@@ -2,11 +2,15 @@ package dh.tour.service;
 
 import dh.tour.dto.request.TourRequest;
 import dh.tour.dto.response.TourResponse;
+import dh.tour.exceptions.ResourceNotFoundException;
 import dh.tour.model.Categoria;
+import dh.tour.model.EstadoTour;
 import dh.tour.model.Tour;
 import dh.tour.repository.CategoriaRepository;
 import dh.tour.repository.TourRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
@@ -30,7 +34,7 @@ public class TourService {
 
     public TourResponse crearTour(TourRequest dto, List<MultipartFile> imagenes) throws IOException {
         Categoria cat = categoriaRepository.findById(dto.getCategoriaId())
-                .orElseThrow(() -> new RuntimeException("Categoría no encontrada"));
+                .orElseThrow(() -> new ResourceNotFoundException("Categoría no encontrada"));
 
         List<String> urls = subirImagenes(imagenes);
 
@@ -44,16 +48,21 @@ public class TourService {
                 .fechaFin(dto.getFechaFin())
                 .cuposTotales(dto.getCuposTotales())
                 .cuposDisponibles(dto.getCuposTotales())
-                .disponible(true)
+                .estado(EstadoTour.ACTIVO)
                 .imagenes(urls)
                 .build();
 
         Tour guardado = tourRepository.save(tour);
         return mapToResponse(guardado);
-    } // Aquí solo va UNA llave
+    }
 
-    // Método que te faltaba para que no de error
     private TourResponse mapToResponse(Tour tour) {
+        // Lógica automática: Si no hay cupos, el estado para el usuario es AGOTADO
+        EstadoTour estadoFinal = tour.getEstado();
+        if (tour.getCuposDisponibles() <= 0) {
+            estadoFinal = EstadoTour.AGOTADO;
+        }
+
         return TourResponse.builder()
                 .id(tour.getId())
                 .nombre(tour.getNombre())
@@ -63,6 +72,7 @@ public class TourService {
                 .precio(tour.getPrecio())
                 .fechaInicio(tour.getFechaInicio())
                 .cuposDisponibles(tour.getCuposDisponibles())
+                .estado(estadoFinal) // <--- Enviamos el estado calculado
                 .imagenes(tour.getImagenes())
                 .build();
     }
@@ -80,14 +90,14 @@ public class TourService {
     }
 
     public void eliminarTour(String id) {
-        if (!tourRepository.existsById(id)) throw new RuntimeException("Tour no encontrado");
+        if (!tourRepository.existsById(id)) throw new ResourceNotFoundException("Tour no encontrado");
         tourRepository.deleteById(id);
     }
 
 
     public TourResponse actualizarTour(String id, TourRequest dto, List<MultipartFile> imagenes) throws IOException {
         Tour tour = tourRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Tour no encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Tour no encontrado"));
 
         // Actualizamos los campos desde el DTO
         if (dto.getNombre() != null) tour.setNombre(dto.getNombre());
@@ -106,7 +116,7 @@ public class TourService {
 
         if (dto.getCategoriaId() != null) {
             Categoria cat = categoriaRepository.findById(dto.getCategoriaId())
-                    .orElseThrow(() -> new RuntimeException("Categoría no encontrada"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Categoría no encontrada"));
             tour.setCategoria(cat);
         }
 
@@ -114,6 +124,24 @@ public class TourService {
             tour.setImagenes(subirImagenes(imagenes));
         }
 
+        if (dto.getEstado() != null) {
+            tour.setEstado(dto.getEstado());
+        }
+
         return mapToResponse(tourRepository.save(tour));
     }
+
+    public Page<TourResponse> buscarTours(String nombre, Integer precioMax, Pageable pageable) {
+        String nombreFiltro = (nombre != null) ? nombre.trim() : "";
+        int precioFiltro = (precioMax != null) ? precioMax : Integer.MAX_VALUE;
+
+        // Usaremos un método del repositorio que solo filtre por nombre y precio
+        // Dejando que el 'estado' se muestre sea cual sea
+        return tourRepository.findByNombreContainingIgnoreCaseAndPrecioLessThanEqual(
+                nombreFiltro,
+                precioFiltro,
+                pageable
+        ).map(this::mapToResponse);
+    }
+
 } // Esta es la llave que cierra la CLASE

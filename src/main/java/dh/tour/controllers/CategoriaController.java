@@ -33,13 +33,9 @@ public class CategoriaController {
     @PostMapping
     public ResponseEntity<?> crear(
             @ModelAttribute CategoriaRequest categoriaRequest,
-            @RequestParam("imagenes") List<MultipartFile> imagenes) {
-        try {
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(categoriaService.crear(categoriaRequest, imagenes));
-        }catch (Exception e){
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+            @RequestParam("imagenes") List<MultipartFile> imagenes) throws IOException {
+        categoriaService.crear(categoriaRequest, imagenes);
+        return ResponseEntity.ok("Se ha creado la categoria correctamente");
     }
 
 
@@ -48,32 +44,26 @@ public class CategoriaController {
     public ResponseEntity<?> actualizar(
             @PathVariable String id,
             @Valid @ModelAttribute CategoriaRequest categoriaRequest, // Usamos el DTO aquí también
-            @RequestParam(required = false) List<MultipartFile> imagenes) {
-        try {
-            return ResponseEntity.ok(categoriaService.actualizarCategoria(id, categoriaRequest, imagenes));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(e.getMessage());
-        }
-    }
+            @RequestParam(required = false) List<MultipartFile> imagenes) throws IOException {
+       categoriaService.actualizarCategoria(id, categoriaRequest, imagenes);
+       return ResponseEntity.ok("Se actualizo correctamente la categoria");
 
+    }
 
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PatchMapping("/{id}")
     public ResponseEntity<?> actualizarParcialCategoria(
             @PathVariable String id,
             @ModelAttribute CategoriaRequest categoriaRequest, // Agrupamos todo en el DTO
-            @RequestParam(required = false) List<MultipartFile> imagenes) {
-        try {
-            // Usamos el mismo método del service que ya sabe manejar nulos
-            return ResponseEntity.ok(categoriaService.actualizarCategoria(id, categoriaRequest, imagenes));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(e.getMessage());
-        }
+            @RequestParam(required = false) List<MultipartFile> imagenes) throws IOException {
+        categoriaService.actualizarCategoria(id, categoriaRequest, imagenes);
+        return ResponseEntity.ok("Se actualizo parcialmente la categoria correctamente");
     }
+
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable String id) {
-        categoriaService.eliminar(id);
+        categoriaService.eliminarCategoria(id);
         return ResponseEntity.noContent().build();
     }
 }

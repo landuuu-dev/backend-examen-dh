@@ -2,6 +2,7 @@ package dh.tour.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import dh.tour.model.EstadoTour;
 import lombok.Builder;
 import lombok.Getter;
 import java.time.LocalDate;
@@ -28,6 +29,8 @@ public class TourResponse {
     private LocalDate fechaInicio;
 
     private int cuposDisponibles;
+
+    private EstadoTour estado;
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private List<String> imagenes;

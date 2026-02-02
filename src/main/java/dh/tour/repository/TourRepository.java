@@ -1,18 +1,18 @@
 package dh.tour.repository;
 
+import com.mongodb.client.MongoIterable;
 import dh.tour.model.Tour;
+import dh.tour.model.EstadoTour;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
-import org.springframework.stereotype.Repository;
+import org.springframework.data.mongodb.repository.Query;
 
-import java.util.List;
-
-@Repository
 public interface TourRepository extends MongoRepository<Tour, String> {
-    // Verificar si existe un tour con este nombre (case insensitive)
-    boolean existsByNombreIgnoreCase(String nombre);
 
-    // Verificar si existe un tour con este nombre pero distinto id (para update)
-    boolean existsByNombreIgnoreCaseAndIdNot(String nombre, String id);
-    List<Tour> findByCategoriaId(String categoriaId);
 
+    boolean existsByCategoriaId(String categoriaId);
+
+    Page<Tour> findByNombreContainingIgnoreCaseAndPrecioLessThanEqual(
+            String nombre, int precio, Pageable pageable);
 }

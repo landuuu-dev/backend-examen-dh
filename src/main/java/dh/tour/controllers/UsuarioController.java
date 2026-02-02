@@ -60,25 +60,16 @@ public class UsuarioController {
         if (!principal.getId().equals(id)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No tienes permiso para editar este perfil");
         }
+        usuarioService.actualizarParcial(id, campos);
+        return ResponseEntity.ok("Se ha actualizado parcialmente correctamente el usuario");
 
-        try {
-            Usuario usuarioActualizado = usuarioService.actualizarParcial(id, campos);
-            return ResponseEntity.ok("Perfil actualizado correctamente");
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<String> delete(@PathVariable String id) {
-        try {
-            // ✅ USAMOS EL SERVICE: Ahora sí aplicas la protección de SUPER_ADMIN
             usuarioService.eliminarUsuario(id);
-            return ResponseEntity.ok("Usuario eliminado correctamente");
-        } catch (Exception e) {
-            return ResponseEntity.status(404).body(e.getMessage());
-        }
+           return ResponseEntity.ok("Se ha eliminado correctamente el usuario con id: " + id);
     }
 
     // 🔹 crear favoritos
@@ -142,8 +133,6 @@ public class UsuarioController {
                 inscripcionService.obtenerInscripcionesUsuario(id)
         );
     }
-
-
 
 
 
