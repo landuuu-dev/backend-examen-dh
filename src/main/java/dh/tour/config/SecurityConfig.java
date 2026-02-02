@@ -31,24 +31,23 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // 1. Endpoints Públicos
+                        // 1. Público
                         .requestMatchers("/", "/auth/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/tours/**").permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // IMPORTANTE para evitar 403 en navegadores
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // 2. Reglas de ADMIN/SUPER_ADMIN (Quitamos el comentario y usamos nombres limpios)
-                        // Usamos hasAnyRole que internamente busca "ROLE_" + el nombre
-                        .requestMatchers(HttpMethod.POST, "/tours").hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.PATCH, "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/usuarios").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        // 2. GETs Públicos (Tours y Categorías)
+                        .requestMatchers(HttpMethod.GET, "/tours/**", "/categorias/**").permitAll()
 
-                        // 3. Reglas de Usuario común o cualquier logueado
-                        .requestMatchers(HttpMethod.POST, "/tours/*/inscribir").authenticated()
+                        // 3. POST/PUT/DELETE Protegidos (Solo Admin)
+                        // Usamos métodos específicos para asegurar que no se pisen
+                        .requestMatchers(HttpMethod.POST, "/categorias/**", "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/categorias/**", "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/categorias/**", "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/categorias/**", "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+
+                        // 4. Usuarios logueados
                         .requestMatchers("/usuarios/**").authenticated()
 
-                        // 4. Todo lo demás requiere login
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

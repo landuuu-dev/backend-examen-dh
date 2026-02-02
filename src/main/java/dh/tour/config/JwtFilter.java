@@ -8,6 +8,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -18,15 +19,18 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+
 @Component
 public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final UsuarioRepository usuarioRepository;
+    private final StringRedisTemplate redisTemplate; // <--- 2. Declarar Redis
 
-    public JwtFilter(JwtUtil jwtUtil, UsuarioRepository usuarioRepository) {
+    public JwtFilter(JwtUtil jwtUtil, UsuarioRepository usuarioRepository, StringRedisTemplate redisTemplate) {
         this.jwtUtil = jwtUtil;
         this.usuarioRepository = usuarioRepository;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -42,6 +46,15 @@ public class JwtFilter extends OncePerRequestFilter {
             String token = header.substring(7);
 
             try {
+
+                if (Boolean.TRUE.equals(redisTemplate.hasKey("blacklist_token:" + token))) {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\": \"Token revocado\", \"mensaje\": \"La sesión ha sido cerrada\"}");
+                    return; // Detiene el filtro y no deja pasar al controlador
+                }
+
+
                 Claims claims = jwtUtil.getClaims(token);
                 String correo = claims.getSubject();
 
@@ -63,6 +76,8 @@ public class JwtFilter extends OncePerRequestFilter {
                                     null,
                                     authorities
                             );
+
+                    System.out.println("DEBUG - USUARIO: " + principal.getUsername() + " | ROLES: " + authorities);
 
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }

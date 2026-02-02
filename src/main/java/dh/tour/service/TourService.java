@@ -1,83 +1,70 @@
 package dh.tour.service;
+
+import dh.tour.dto.request.TourRequest;
+import dh.tour.dto.response.TourResponse;
 import dh.tour.model.Categoria;
 import dh.tour.model.Tour;
 import dh.tour.repository.CategoriaRepository;
 import dh.tour.repository.TourRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class TourService {
 
     private final TourRepository tourRepository;
     private final CategoriaRepository categoriaRepository;
     private final CloudinaryService cloudinaryService;
 
-    public TourService(TourRepository tourRepository, CategoriaRepository categoriaRepository, CloudinaryService cloudinaryService) {
-        this.tourRepository = tourRepository;
-        this.categoriaRepository = categoriaRepository;
-        this.cloudinaryService = cloudinaryService;
+
+    public List<TourResponse> listarTodos() {
+        return tourRepository.findAll().stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
-    public List<Tour> listarTodos() {
-        return tourRepository.findAll();
-    }
-
-    public List<Tour> listarPorCategoria(String categoriaId) {
-        return tourRepository.findByCategoriaId(categoriaId);
-    }
-
-    public Tour crearTour(String nombre, String categoriaId, String descripcion, String ubicacion,
-                          int precio, LocalDate inicio, LocalDate fin, int cupos,
-                          boolean disponible, List<MultipartFile> imagenes) throws IOException {
-
-        Categoria cat = categoriaRepository.findById(categoriaId)
+    public TourResponse crearTour(TourRequest dto, List<MultipartFile> imagenes) throws IOException {
+        Categoria cat = categoriaRepository.findById(dto.getCategoriaId())
                 .orElseThrow(() -> new RuntimeException("Categoría no encontrada"));
 
         List<String> urls = subirImagenes(imagenes);
 
-        Tour tour = new Tour(nombre, cat, descripcion, ubicacion, precio, inicio, fin, cupos, disponible, urls);
-        tour.setCuposDisponibles(cupos);
-        return tourRepository.save(tour);
-    }
+        Tour tour = Tour.builder()
+                .nombre(dto.getNombre())
+                .categoria(cat)
+                .descripcion(dto.getDescripcion())
+                .ubicacion(dto.getUbicacion())
+                .precio(dto.getPrecio())
+                .fechaInicio(dto.getFechaInicio())
+                .fechaFin(dto.getFechaFin())
+                .cuposTotales(dto.getCuposTotales())
+                .cuposDisponibles(dto.getCuposTotales())
+                .disponible(true)
+                .imagenes(urls)
+                .build();
 
-    public Tour actualizarTour(String id, String nombre, String descripcion, String ubicacion,
-                               Integer precio, LocalDate inicio, LocalDate fin, Integer totales,
-                               Integer disponibles, Boolean disponible, String categoriaId,
-                               List<MultipartFile> imagenes) throws IOException {
+        Tour guardado = tourRepository.save(tour);
+        return mapToResponse(guardado);
+    } // Aquí solo va UNA llave
 
-        Tour tour = tourRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Tour no encontrado"));
-
-        if (nombre != null) tour.setNombre(nombre);
-        if (descripcion != null) tour.setDescripcion(descripcion);
-        if (ubicacion != null) tour.setUbicacion(ubicacion);
-        if (precio != null) tour.setPrecio(precio);
-        if (inicio != null) tour.setFechaInicio(inicio);
-        if (fin != null) tour.setFechaFin(fin);
-        if (totales != null) tour.setCuposTotales(totales);
-        if (disponibles != null) tour.setCuposDisponibles(disponibles);
-        if (disponible != null) tour.setDisponible(disponible);
-
-        // Validación anti-bug de cupos
-        if (tour.getCuposDisponibles() > tour.getCuposTotales()) {
-            tour.setCuposDisponibles(tour.getCuposTotales());
-        }
-
-        if (categoriaId != null) {
-            Categoria cat = categoriaRepository.findById(categoriaId).orElse(null);
-            if (cat != null) tour.setCategoria(cat);
-        }
-
-        if (imagenes != null && !imagenes.isEmpty()) {
-            tour.setImagenes(subirImagenes(imagenes));
-        }
-
-        return tourRepository.save(tour);
+    // Método que te faltaba para que no de error
+    private TourResponse mapToResponse(Tour tour) {
+        return TourResponse.builder()
+                .id(tour.getId())
+                .nombre(tour.getNombre())
+                .nombreCategoria(tour.getCategoria() != null ? tour.getCategoria().getNombre() : "Sin categoría")
+                .descripcion(tour.getDescripcion())
+                .ubicacion(tour.getUbicacion())
+                .precio(tour.getPrecio())
+                .fechaInicio(tour.getFechaInicio())
+                .cuposDisponibles(tour.getCuposDisponibles())
+                .imagenes(tour.getImagenes())
+                .build();
     }
 
     private List<String> subirImagenes(List<MultipartFile> imagenes) throws IOException {
@@ -96,4 +83,37 @@ public class TourService {
         if (!tourRepository.existsById(id)) throw new RuntimeException("Tour no encontrado");
         tourRepository.deleteById(id);
     }
-}
+
+
+    public TourResponse actualizarTour(String id, TourRequest dto, List<MultipartFile> imagenes) throws IOException {
+        Tour tour = tourRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Tour no encontrado"));
+
+        // Actualizamos los campos desde el DTO
+        if (dto.getNombre() != null) tour.setNombre(dto.getNombre());
+        if (dto.getDescripcion() != null) tour.setDescripcion(dto.getDescripcion());
+        if (dto.getUbicacion() != null) tour.setUbicacion(dto.getUbicacion());
+        if (dto.getPrecio() > 0) tour.setPrecio(dto.getPrecio());
+        if (dto.getFechaInicio() != null) tour.setFechaInicio(dto.getFechaInicio());
+        if (dto.getFechaFin() != null) tour.setFechaFin(dto.getFechaFin());
+
+        // Ajuste de cupos
+        if (dto.getCuposTotales() > 0) {
+            int diferencia = dto.getCuposTotales() - tour.getCuposTotales();
+            tour.setCuposTotales(dto.getCuposTotales());
+            tour.setCuposDisponibles(tour.getCuposDisponibles() + diferencia);
+        }
+
+        if (dto.getCategoriaId() != null) {
+            Categoria cat = categoriaRepository.findById(dto.getCategoriaId())
+                    .orElseThrow(() -> new RuntimeException("Categoría no encontrada"));
+            tour.setCategoria(cat);
+        }
+
+        if (imagenes != null && !imagenes.isEmpty()) {
+            tour.setImagenes(subirImagenes(imagenes));
+        }
+
+        return mapToResponse(tourRepository.save(tour));
+    }
+} // Esta es la llave que cierra la CLASE

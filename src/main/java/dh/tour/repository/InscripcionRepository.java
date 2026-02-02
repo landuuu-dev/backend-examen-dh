@@ -10,9 +10,7 @@ import java.util.Optional;
 public interface InscripcionRepository extends MongoRepository<Inscripcion, String> {
     List<Inscripcion> findByTourId(String tourId);
     List<Inscripcion> findByUsuarioId(String usuarioId); // Cambiado de Object a List
-
     boolean existsByUsuarioIdAndTourId(String id, String id1);
-
     Optional<Inscripcion> findByTourIdAndUsuarioId(String tourId, String usuarioId);
 
 }

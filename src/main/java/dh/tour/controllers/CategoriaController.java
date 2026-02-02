@@ -1,8 +1,13 @@
 package dh.tour.controllers;
 
-import dh.tour.model.Categoria;
-import dh.tour.repository.CategoriaRepository;
-import dh.tour.service.CloudinaryService;
+import dh.tour.dto.request.CategoriaRequest;
+import dh.tour.dto.request.TourRequest;
+import dh.tour.dto.response.CategoriaResponse;
+import dh.tour.service.CategoriaService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -10,156 +15,65 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
-@CrossOrigin(
-        origins = "http://localhost:5173",
-        allowedHeaders = "*",
-        methods = { RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT,
-                RequestMethod.PATCH, RequestMethod.DELETE, RequestMethod.OPTIONS }
-)
 @RestController
 @RequestMapping("/categorias")
+@RequiredArgsConstructor
 public class CategoriaController {
 
-    private final CategoriaRepository categoriaRepository;
-    private final CloudinaryService cloudinaryService;
-
-    public CategoriaController(CategoriaRepository categoriaRepository,
-                               CloudinaryService cloudinaryService) {
-        this.categoriaRepository = categoriaRepository;
-        this.cloudinaryService = cloudinaryService;
-    }
+    private final CategoriaService categoriaService;
 
     @GetMapping
-    public ResponseEntity<List<Categoria>> getAll() {
-        return ResponseEntity.ok(categoriaRepository.findAll());
+    public ResponseEntity<List<CategoriaResponse>> getAll() {
+        return ResponseEntity.ok(categoriaService.findAll());
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PostMapping
-    public ResponseEntity<?> crearCategoria(
-            @RequestParam String nombre,
-            @RequestParam String descripcion,
-            @RequestParam MultipartFile imagen1,
-            @RequestParam(required = false) MultipartFile imagen2,
-            @RequestParam(required = false) MultipartFile imagen3) {
-
-        if (imagen1.isEmpty()) {
-            return ResponseEntity.badRequest().body("La categoría debe tener al menos una imagen.");
-        }
-
+    public ResponseEntity<?> crear(
+            @ModelAttribute CategoriaRequest categoriaRequest,
+            @RequestParam("imagenes") List<MultipartFile> imagenes) {
         try {
-            String pathImagen1 = cloudinaryService.uploadFile(imagen1);
-            String pathImagen2 = (imagen2 != null && !imagen2.isEmpty())
-                    ? cloudinaryService.uploadFile(imagen2)
-                    : null;
-            String pathImagen3 = (imagen3 != null && !imagen3.isEmpty())
-                    ? cloudinaryService.uploadFile(imagen3)
-                    : null;
-
-            Categoria nueva = new Categoria(nombre, descripcion, pathImagen1, pathImagen2, pathImagen3);
-            categoriaRepository.save(nueva);
-
-            return ResponseEntity.ok(nueva);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().body("Error subiendo imágenes.");
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(categoriaService.crear(categoriaRequest, imagenes));
+        }catch (Exception e){
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
 
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<?> update(
+    public ResponseEntity<?> actualizar(
             @PathVariable String id,
-            @RequestParam String nombre,
-            @RequestParam(required = false) String descripcion,
-            @RequestParam(required = false) MultipartFile imagen1,
-            @RequestParam(required = false) MultipartFile imagen2,
-            @RequestParam(required = false) MultipartFile imagen3) {
-
-        return categoriaRepository.findById(id).map(c -> {
-
-            c.setNombre(nombre);
-            c.setDescripcion(descripcion);
-
-            try {
-                if (imagen1 != null && !imagen1.isEmpty()) {
-                    c.setImagen1(cloudinaryService.uploadFile(imagen1));
-                }
-                if (imagen2 != null && !imagen2.isEmpty()) {
-                    c.setImagen2(cloudinaryService.uploadFile(imagen2));
-                }
-                if (imagen3 != null && !imagen3.isEmpty()) {
-                    c.setImagen3(cloudinaryService.uploadFile(imagen3));
-                }
-
-                return ResponseEntity.ok(categoriaRepository.save(c));
-
-            } catch (IOException e) {
-                e.printStackTrace();
-                return ResponseEntity.internalServerError().body("Error subiendo imágenes.");
-            }
-
-        }).orElse(ResponseEntity.notFound().build());
-    }
-
-    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
-    @DeleteMapping("/{id}")
-    public ResponseEntity<String> delete(@PathVariable String id) {
-        if (categoriaRepository.existsById(id)) {
-            categoriaRepository.deleteById(id);
-            return ResponseEntity.ok("Categoría eliminada correctamente");
+            @Valid @ModelAttribute CategoriaRequest categoriaRequest, // Usamos el DTO aquí también
+            @RequestParam(required = false) List<MultipartFile> imagenes) {
+        try {
+            return ResponseEntity.ok(categoriaService.actualizarCategoria(id, categoriaRequest, imagenes));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(e.getMessage());
         }
-        return ResponseEntity.notFound().build();
     }
+
 
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PatchMapping("/{id}")
-    public ResponseEntity<?> actualizarParcial(
+    public ResponseEntity<?> actualizarParcialCategoria(
             @PathVariable String id,
-            @RequestParam(required = false) String nombre,
-            @RequestParam(required = false) String descripcion,
-            @RequestParam(required = false) MultipartFile imagen1,
-            @RequestParam(required = false) MultipartFile imagen2,
-            @RequestParam(required = false) MultipartFile imagen3
-    ) {
-
-        return categoriaRepository.findById(id).map(categoria -> {
-
-            try {
-                // Actualiza solo lo que viene
-                if (nombre != null && !nombre.isEmpty()) {
-                    categoria.setNombre(nombre);
-                }
-
-                if (descripcion != null && !descripcion.isEmpty()) {
-                    categoria.setDescripcion(descripcion);
-                }
-
-                if (imagen1 != null && !imagen1.isEmpty()) {
-                    categoria.setImagen1(cloudinaryService.uploadFile(imagen1));
-                }
-
-                if (imagen2 != null && !imagen2.isEmpty()) {
-                    categoria.setImagen2(cloudinaryService.uploadFile(imagen2));
-                }
-
-                if (imagen3 != null && !imagen3.isEmpty()) {
-                    categoria.setImagen3(cloudinaryService.uploadFile(imagen3));
-                }
-
-                categoriaRepository.save(categoria);
-                return ResponseEntity.ok(categoria);
-
-            } catch (IOException e) {
-                e.printStackTrace();
-                return ResponseEntity.internalServerError().body("Error al actualizar imágenes");
-            }
-
-        }).orElse(ResponseEntity.notFound().build());
+            @ModelAttribute CategoriaRequest categoriaRequest, // Agrupamos todo en el DTO
+            @RequestParam(required = false) List<MultipartFile> imagenes) {
+        try {
+            // Usamos el mismo método del service que ya sabe manejar nulos
+            return ResponseEntity.ok(categoriaService.actualizarCategoria(id, categoriaRequest, imagenes));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(e.getMessage());
+        }
     }
-
-
-
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable String id) {
+        categoriaService.eliminar(id);
+        return ResponseEntity.noContent().build();
+    }
 }

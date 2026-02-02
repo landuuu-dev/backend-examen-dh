@@ -37,4 +37,10 @@ public class JwtUtil {
                 .parseClaimsJws(token)
                 .getBody();
     }
+
+    public long getRemainingTime(String token) {
+        Claims claims = getClaims(token);
+        Date expirationDate = claims.getExpiration();
+        return expirationDate.getTime() - System.currentTimeMillis();
+    }
 }

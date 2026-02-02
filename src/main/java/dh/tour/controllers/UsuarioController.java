@@ -1,11 +1,13 @@
 package dh.tour.controllers;
 import dh.tour.config.security.CustomUserDetails;
-import dh.tour.dto.UsuarioResponse;
+import dh.tour.dto.response.UsuarioResponse;
 import dh.tour.model.Tour;
 import dh.tour.model.Usuario;
 import dh.tour.repository.InscripcionRepository;
 import dh.tour.repository.UsuarioRepository;
+import dh.tour.service.InscripcionService;
 import dh.tour.service.UsuarioService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,69 +19,66 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/usuarios")
+@RequiredArgsConstructor // <-- Agregamos esto para limpiar constructores
 public class UsuarioController {
 
-    private final UsuarioRepository usuarioRepository;
-    private final UsuarioService usuarioService;
-    private final InscripcionRepository inscripcionRepository;
+    private final UsuarioService usuarioService; // Única dependencia necesaria
+    private final InscripcionService inscripcionService;
 
-    public UsuarioController(UsuarioRepository usuarioRepository, UsuarioService usuarioService, InscripcionRepository inscripcionRepository) {
-        this.usuarioRepository = usuarioRepository;
-        this.usuarioService = usuarioService;
-        this.inscripcionRepository = inscripcionRepository;
-    }
-
-    // 🔹 Obtener todos los usuarios
-    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @GetMapping
-    public List<Usuario> getAll() {
-        return usuarioRepository.findAll();
-    }
-
-
-    // 🔹 Obtener usuario por ID
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
-    @GetMapping("/{id}")
-    public Optional<Usuario> getById(@PathVariable String id) {
-        return usuarioRepository.findById(id);
+    public ResponseEntity<List<UsuarioResponse>> getAll() {
+        return ResponseEntity.ok(usuarioService.listarTodos());
     }
 
-
-    // 🔹 Actualizar usuario
     @PutMapping("/{id}")
-    @PreAuthorize("isAuthenticated()") // solo verifica que esté autenticado
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<String> actualizarUsuario(
             @PathVariable String id,
-            @RequestBody UsuarioResponse usuarioResponse,
+            @RequestBody Usuario usuarioRequest,
             @AuthenticationPrincipal CustomUserDetails principal) {
 
-        // 🔹 Validación: solo puede actualizar su propio usuario
         if (!principal.getId().equals(id)) {
-            return ResponseEntity.status(403).body("No autorizado para actualizar este usuario");
+            return ResponseEntity.status(403).body("No autorizado");
         }
 
-        // 🔹 Buscar usuario en DB
-        Usuario usuario = usuarioService.buscarPorId(id);
-
-        // 🔹 Actualizar campos permitidos
-        usuario.setNombre(usuarioResponse.getNombre());
-        usuario.setCorreo(usuarioResponse.getCorreo()); // opcional, si quieres permitir cambio de correo
-
-        // 🔹 Guardar cambios
-        usuarioRepository.save(usuario);
-
+        // ✅ USAMOS EL SERVICE: Esto quita el aviso de "Method not used"
+        usuarioService.actualizar(id, usuarioRequest);
         return ResponseEntity.ok("Usuario actualizado correctamente");
     }
 
-    // 🔹 Eliminar usuario
+    // 🔹 Actualización parcial (PATCH) para el usuario
+    @PatchMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> actualizarParcial(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> campos,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+
+        // Seguridad: El usuario solo puede editar su propio perfil
+        // Los ADMIN podrían editar a cualquiera si quitas esta validación
+        if (!principal.getId().equals(id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No tienes permiso para editar este perfil");
+        }
+
+        try {
+            Usuario usuarioActualizado = usuarioService.actualizarParcial(id, campos);
+            return ResponseEntity.ok("Perfil actualizado correctamente");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<String> delete(@PathVariable String id) {
-        if (!usuarioRepository.existsById(id)) {
-            return ResponseEntity.status(404).body("Usuario no encontrado");
+        try {
+            // ✅ USAMOS EL SERVICE: Ahora sí aplicas la protección de SUPER_ADMIN
+            usuarioService.eliminarUsuario(id);
+            return ResponseEntity.ok("Usuario eliminado correctamente");
+        } catch (Exception e) {
+            return ResponseEntity.status(404).body(e.getMessage());
         }
-        usuarioRepository.deleteById(id);
-        return ResponseEntity.ok("Usuario eliminado correctamente");
     }
 
     // 🔹 crear favoritos
@@ -133,35 +132,19 @@ public class UsuarioController {
             @PathVariable String id,
             @AuthenticationPrincipal CustomUserDetails principal) {
 
-        // Seguridad: El usuario solo puede ver sus propias inscripciones
         if (!principal.getId().equals(id)) {
-            return ResponseEntity.status(403).body("No puedes ver inscripciones de otros");
+            return ResponseEntity.status(403)
+                    .body("No puedes ver inscripciones de otros");
         }
 
-        return ResponseEntity.ok(inscripcionRepository.findByUsuarioId(id));
+
+        return ResponseEntity.ok(
+                inscripcionService.obtenerInscripcionesUsuario(id)
+        );
     }
 
-    // 🔹 Actualización parcial (PATCH) para el usuario
-    @PatchMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> actualizarParcial(
-            @PathVariable String id,
-            @RequestBody Map<String, Object> campos,
-            @AuthenticationPrincipal CustomUserDetails principal) {
 
-        // Seguridad: El usuario solo puede editar su propio perfil
-        // Los ADMIN podrían editar a cualquiera si quitas esta validación
-        if (!principal.getId().equals(id)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No tienes permiso para editar este perfil");
-        }
 
-        try {
-            Usuario usuarioActualizado = usuarioService.actualizarParcial(id, campos);
-            return ResponseEntity.ok("Perfil actualizado correctamente");
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
-    }
 
 
 }

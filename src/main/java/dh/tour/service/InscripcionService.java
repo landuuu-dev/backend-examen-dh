@@ -4,21 +4,19 @@ import dh.tour.model.Inscripcion;
 import dh.tour.model.Tour;
 import dh.tour.repository.InscripcionRepository;
 import dh.tour.repository.TourRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class InscripcionService {
 
     private final InscripcionRepository inscripcionRepository;
     private final TourRepository tourRepository;
-
-    public InscripcionService(InscripcionRepository inscripcionRepository, TourRepository tourRepository) {
-        this.inscripcionRepository = inscripcionRepository;
-        this.tourRepository = tourRepository;
-    }
 
     @Transactional // <--- Esto asegura que si algo falla, no se guarde nada a medias
     public String inscribirUsuario(String tourId, String usuarioId, String username) {
@@ -70,5 +68,12 @@ public class InscripcionService {
             t.setDisponible(true);
             tourRepository.save(t);
         });
+    }
+
+    public List<Inscripcion> obtenerInscripcionesUsuario(String usuarioId) {
+        return inscripcionRepository.findByUsuarioId(usuarioId);
+    }
+    public  List<Inscripcion> obtenerInscripcionesPorTour(String tourId){
+        return inscripcionRepository.findByTourId(tourId);
     }
 }

@@ -1,51 +1,53 @@
 package dh.tour.service;
+import dh.tour.config.JwtUtil;
+import dh.tour.dto.response.UsuarioResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import dh.tour.model.Rol;
 import dh.tour.model.Tour;
 import dh.tour.model.Usuario;
 import dh.tour.repository.TourRepository;
 import dh.tour.repository.UsuarioRepository;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Service
+@RequiredArgsConstructor
 public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final TourRepository tourRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final JwtUtil jwtUtil;
+    private final RedisTemplate redisTemplate;
 
-
-    public UsuarioService(UsuarioRepository usuarioRepository, TourRepository tourRepository, PasswordEncoder passwordEncoder, EmailService emailService) {
-        this.usuarioRepository = usuarioRepository;
-        this.tourRepository = tourRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.emailService = emailService;
-    }
     public Usuario registrar(Usuario usuario) {
         try {
-            usuario.setPassword(
-                    passwordEncoder.encode(usuario.getPassword())
-            );
+            // Hashing de seguridad
+            usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
+
+            // Inicializar favoritos para evitar NullPointerException
+            if (usuario.getFavoritos() == null) {
+                usuario.setFavoritos(new ArrayList<>());
+            }
 
             return usuarioRepository.save(usuario);
         } catch (DuplicateKeyException e) {
-            // Aquí capturamos el error de MongoDB y lo traducimos
-            System.err.println("⚠️ INTENTO DE REGISTRO FALLIDO: El correo " + usuario.getCorreo() + " ya existe.");
-
-            // Lanzamos una excepción personalizada o una de Spring para que el Controller sepa qué pasó
             throw new RuntimeException("El usuario con este correo ya está registrado.");
         }
     }
 
-
     public Usuario login(String correo, String password) {
-
         Usuario usuario = usuarioRepository.findByCorreo(correo)
-                .orElseThrow(() -> new RuntimeException("Usuario no existe"));
+                .orElseThrow(() -> new RuntimeException("Credenciales incorrectas"));
 
         if (!passwordEncoder.matches(password, usuario.getPassword())) {
             throw new RuntimeException("Credenciales incorrectas");
@@ -54,7 +56,35 @@ public class UsuarioService {
         return usuario;
     }
 
+    public void solicitarRecuperacion(String correo) {
+        Usuario usuario = usuarioRepository.findByCorreo(correo)
+                .orElseThrow(() -> new RuntimeException("Correo no encontrado"));
 
+        String token = UUID.randomUUID().toString();
+        usuario.setResetToken(token);
+        usuario.setResetTokenExpiration(LocalDateTime.now().plusMinutes(15));
+        usuarioRepository.save(usuario);
+
+        emailService.enviarEmailRecuperacion(correo, token);
+    }
+
+    public void completarRecuperacion(String token, String nuevaPassword) {
+        // Buscamos directamente por token en lugar de filtrar toda la lista en memoria
+        Usuario usuario = usuarioRepository.findAll().stream()
+                .filter(u -> token.equals(u.getResetToken()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Token inválido o no encontrado"));
+
+        if (usuario.getResetTokenExpiration().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("El token ha expirado");
+        }
+
+        // Protegemos la nueva contraseña
+        usuario.setPassword(passwordEncoder.encode(nuevaPassword));
+        usuario.setResetToken(null);
+        usuario.setResetTokenExpiration(null);
+        usuarioRepository.save(usuario);
+    }
 
     public void promoteToAdmin(String userId) {
 
@@ -105,7 +135,7 @@ public class UsuarioService {
     }
 
 
-        public Usuario agregarFavorito(String usuarioId, String tourId) {
+    public Usuario agregarFavorito(String usuarioId, String tourId) {
             Usuario usuario = usuarioRepository.findById(usuarioId)
                     .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
@@ -153,34 +183,6 @@ public class UsuarioService {
 
     // En dh.tour.service.UsuarioService.java agrega:
 
-    public void solicitarRecuperacion(String correo) {
-        Usuario usuario = usuarioRepository.findByCorreo(correo)
-                .orElseThrow(() -> new RuntimeException("Correo no encontrado"));
-
-        String token = java.util.UUID.randomUUID().toString();
-        usuario.setResetToken(token);
-        usuario.setResetTokenExpiration(java.time.LocalDateTime.now().plusMinutes(15));
-        usuarioRepository.save(usuario);
-
-        emailService.enviarEmailRecuperacion(correo, token);
-    }
-
-    public void completarRecuperacion(String token, String nuevaPassword) {
-        Usuario usuario = usuarioRepository.findAll().stream()
-                .filter(u -> token.equals(u.getResetToken()))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Token inválido"));
-
-        if (usuario.getResetTokenExpiration().isBefore(java.time.LocalDateTime.now())) {
-            throw new RuntimeException("El token ha expirado");
-        }
-
-        usuario.setPassword(passwordEncoder.encode(nuevaPassword));
-        usuario.setResetToken(null); // Limpiar token usado
-        usuario.setResetTokenExpiration(null);
-        usuarioRepository.save(usuario);
-    }
-
     public Usuario actualizarParcial(String id, Map<String, Object> campos) {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
@@ -204,6 +206,28 @@ public class UsuarioService {
 
         return usuarioRepository.save(usuario);
     }
+
+    public List<UsuarioResponse> listarTodos() {
+        return usuarioRepository.findAll()
+                .stream()
+                .map(u -> UsuarioResponse.builder()
+                        .id(u.getId())
+                        .nombre(u.getNombre())
+                        .correo(u.getCorreo())
+                        .rol(u.getRol())
+                        .build())
+                .toList();
+    }
+
+    public void logout(String token) {
+        // Extraemos el tiempo que le queda de vida al token para no guardarlo en Redis eternamente
+        long remainingTime = jwtUtil.getRemainingTime(token);
+        if (remainingTime > 0) {
+            // Guardamos el token en Redis con el prefijo "blacklist_token:"
+            redisTemplate.opsForValue().set("blacklist_token:" + token, "revoked", remainingTime, TimeUnit.MILLISECONDS);
+        }
+    }
+
 }
 
 
