@@ -14,6 +14,7 @@ public class SuperAdminInitializer {
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
 
+
     @Value("${super-admin.email}")
     private String email;
 
