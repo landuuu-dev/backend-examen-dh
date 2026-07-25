@@ -44,9 +44,11 @@ public class AuthController {
 
         String token = jwtUtil.generateToken(usuario);
 
+        // 💡 Agregamos el "id" en el Map de respuesta
         return ResponseEntity.ok(Map.of(
                 "token", token,
-                "rol", usuario.getRol()
+                "rol", usuario.getRol(),
+                "id", usuario.getId()
         ));
     }
 
