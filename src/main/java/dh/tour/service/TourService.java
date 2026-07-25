@@ -132,16 +132,12 @@ public class TourService {
     }
 
     public Page<TourResponse> buscarTours(String nombre, Integer precioMax, Pageable pageable) {
-        String nombreFiltro = (nombre != null) ? nombre.trim() : "";
-        int precioFiltro = (precioMax != null) ? precioMax : Integer.MAX_VALUE;
+        // Si viene texto vacío, lo pasamos como null para que MongoDB no filtre por cadena vacía ""
+        String nombreFiltro = (nombre != null && !nombre.trim().isEmpty()) ? nombre.trim() : null;
 
-        // Usaremos un método del repositorio que solo filtre por nombre y precio
-        // Dejando que el 'estado' se muestre sea cual sea
-        return tourRepository.findByNombreContainingIgnoreCaseAndPrecioLessThanEqual(
-                nombreFiltro,
-                precioFiltro,
-                pageable
-        ).map(this::mapToResponse);
+        Page<Tour> tours = tourRepository.buscarTours(nombreFiltro, precioMax, pageable);
+
+        // Cambiamos 'convertirAResponse' por 'mapToResponse'
+        return tours.map(this::mapToResponse);
     }
-
 } // Esta es la llave que cierra la CLASE
