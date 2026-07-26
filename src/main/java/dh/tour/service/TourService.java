@@ -16,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -140,4 +141,13 @@ public class TourService {
         // Cambiamos 'convertirAResponse' por 'mapToResponse'
         return tours.map(this::mapToResponse);
     }
-} // Esta es la llave que cierra la CLASE
+
+
+    public List<TourResponse> findByCategoriaId(String categoriaId) {
+        List<Tour> tours = tourRepository.findByCategoria_Id(categoriaId);
+
+        return tours.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+}

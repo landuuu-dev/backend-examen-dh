@@ -105,4 +105,17 @@ public class TourController {
         return ResponseEntity.ok(tourService.buscarTours(nombre, precioMax, pageable));
     }
 
+    @GetMapping("/categoria/{categoriaId}")
+    public ResponseEntity<List<TourResponse>> getToursByCategoria(@PathVariable String categoriaId) {
+        try {
+            // Llama a tu TourService para buscar los tours que pertenecen a esa categoría
+            List<TourResponse> tours = tourService.findByCategoriaId(categoriaId);
+            return ResponseEntity.ok(tours != null ? tours : List.of());
+        } catch (Exception e) {
+            // Evitamos el 500 retornando una lista vacía si la categoría no tiene tours o falla
+            System.err.println("Error al buscar tours por categoría: " + e.getMessage());
+            return ResponseEntity.ok(List.of());
+        }
+    }
+
 }

@@ -6,6 +6,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 
+import java.util.List;
+
 public interface TourRepository extends MongoRepository<Tour, String> {
 
     boolean existsByCategoriaId(String categoriaId);
@@ -18,4 +20,5 @@ public interface TourRepository extends MongoRepository<Tour, String> {
             "  ] " +
             "}")
     Page<Tour> buscarTours(String nombre, Integer precioMax, Pageable pageable);
+    List<Tour> findByCategoria_Id(String categoriaId);
 }
