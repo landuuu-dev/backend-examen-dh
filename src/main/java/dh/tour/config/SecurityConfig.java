@@ -38,14 +38,17 @@ public class SecurityConfig {
                         // 2. GETs Públicos (Tours y Categorías)
                         .requestMatchers(HttpMethod.GET, "/tours/**", "/categorias/**").permitAll()
 
-                        // 3. POST/PUT/DELETE Protegidos (Solo Admin)
-                        // Usamos métodos específicos para asegurar que no se pisen
+                        // 🎯 3. EXCEPCIÓN: Permitir inscripción/desinscripción a cualquier usuario autenticado (¡DEBE IR ANTES DE LA REGLA ADMIN!)
+                        .requestMatchers(HttpMethod.POST, "/tours/*/inscribir").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/tours/*/desinscribirse").authenticated()
+
+                        // 4. POST/PUT/DELETE Protegidos (Solo Admin para el resto de tours)
                         .requestMatchers(HttpMethod.POST, "/categorias/**", "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/categorias/**", "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/categorias/**", "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/categorias/**", "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
 
-                        // 4. Usuarios logueados
+                        // 5. Usuarios logueados
                         .requestMatchers("/usuarios/**").authenticated()
 
                         .anyRequest().authenticated()
