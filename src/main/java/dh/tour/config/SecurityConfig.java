@@ -26,27 +26,29 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> {}) // Si usas el frontend, después ajustamos esto más a fondo
+                .cors(cors -> {})
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // 1. Público
+                        // 1. Público básico
                         .requestMatchers("/", "/auth/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // 2. GETs Públicos (Tours y Categorías)
-                        .requestMatchers(HttpMethod.GET, "/tours/**", "/categorias/**").permitAll()
-
-                        // 🎯 3. EXCEPCIÓN: Permitir inscripción/desinscripción a cualquier usuario autenticado (¡DEBE IR ANTES DE LA REGLA ADMIN!)
+                        // 🎯 2. EXCEPCIONES PROTEGIDAS EN TOURS (DEBEN IR ANTES DEL permitAll GENERAL)
                         .requestMatchers(HttpMethod.POST, "/tours/*/inscribir").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/tours/*/desinscribirse").authenticated()
+                        // Proteger la lista de inscritos para Admins
+                        .requestMatchers(HttpMethod.GET, "/tours/*/inscritos").hasAnyAuthority("ADMIN", "SUPER_ADMIN", "ROLE_ADMIN", "ROLE_SUPER_ADMIN")
 
-                        // 4. POST/PUT/DELETE Protegidos (Solo Admin para el resto de tours)
-                        .requestMatchers(HttpMethod.POST, "/categorias/**", "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/categorias/**", "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.PATCH, "/categorias/**", "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/categorias/**", "/tours/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        // 3. GETs Públicos (Resto de Tours y Categorías)
+                        .requestMatchers(HttpMethod.GET, "/tours/**", "/categorias/**").permitAll()
+
+                        // 4. POST/PUT/DELETE Protegidos
+                        .requestMatchers(HttpMethod.POST, "/categorias/**", "/tours/**").hasAnyAuthority("ADMIN", "SUPER_ADMIN", "ROLE_ADMIN", "ROLE_SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/categorias/**", "/tours/**").hasAnyAuthority("ADMIN", "SUPER_ADMIN", "ROLE_ADMIN", "ROLE_SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/categorias/**", "/tours/**").hasAnyAuthority("ADMIN", "SUPER_ADMIN", "ROLE_ADMIN", "ROLE_SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/categorias/**", "/tours/**").hasAnyAuthority("ADMIN", "SUPER_ADMIN", "ROLE_ADMIN", "ROLE_SUPER_ADMIN")
 
                         // 5. Usuarios logueados
                         .requestMatchers("/usuarios/**").authenticated()
