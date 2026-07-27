@@ -38,11 +38,16 @@ public class UsuarioController {
             @RequestBody Usuario usuarioRequest,
             @AuthenticationPrincipal CustomUserDetails principal) {
 
-        if (!principal.getId().equals(id)) {
-            return ResponseEntity.status(403).body("No autorizado");
+        // Permitimos la edición si es el propio usuario O SI TIENE ROL SUPER_ADMIN / ADMIN
+        boolean esMismoUsuario = principal.getId().equals(id);
+        boolean esAdminOSuperAdmin = principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_SUPER_ADMIN") ||
+                        a.getAuthority().equals("ROLE_ADMIN"));
+
+        if (!esMismoUsuario && !esAdminOSuperAdmin) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No tienes permisos para modificar a este usuario");
         }
 
-        // ✅ USAMOS EL SERVICE: Esto quita el aviso de "Method not used"
         usuarioService.actualizar(id, usuarioRequest);
         return ResponseEntity.ok("Usuario actualizado correctamente");
     }
