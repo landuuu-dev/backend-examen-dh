@@ -19,9 +19,8 @@ public class AdminController {
     }
 
     @PostMapping("/promote/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'ROLE_SUPER_ADMIN')")
     public ResponseEntity<?> makeAdmin(@PathVariable String id) {
-
         usuarioService.promoteToAdmin(id);
         return ResponseEntity.ok("Usuario promovido a ADMIN");
     }

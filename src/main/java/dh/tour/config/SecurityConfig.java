@@ -1,6 +1,5 @@
 package dh.tour.config;
 
-import dh.tour.config.JwtFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -35,22 +34,24 @@ public class SecurityConfig {
                         .requestMatchers("/", "/auth/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // 🎯 2. EXCEPCIONES PROTEGIDAS EN TOURS (DEBEN IR ANTES DEL permitAll GENERAL)
+                        // 2. Ruta de administración
+                        .requestMatchers("/admin/**").hasAnyAuthority("ADMIN", "SUPER_ADMIN", "ROLE_ADMIN", "ROLE_SUPER_ADMIN")
+
+                        // 3. Inscripciones y detalles protegidos en Tours
                         .requestMatchers(HttpMethod.POST, "/tours/*/inscribir").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/tours/*/desinscribirse").authenticated()
-                        // Proteger la lista de inscritos para Admins
                         .requestMatchers(HttpMethod.GET, "/tours/*/inscritos").hasAnyAuthority("ADMIN", "SUPER_ADMIN", "ROLE_ADMIN", "ROLE_SUPER_ADMIN")
 
-                        // 3. GETs Públicos (Resto de Tours y Categorías)
+                        // 4. GETs Públicos (Resto de Tours y Categorías)
                         .requestMatchers(HttpMethod.GET, "/tours/**", "/categorias/**").permitAll()
 
-                        // 4. POST/PUT/DELETE Protegidos
+                        // 5. POST/PUT/PATCH/DELETE Protegidos
                         .requestMatchers(HttpMethod.POST, "/categorias/**", "/tours/**").hasAnyAuthority("ADMIN", "SUPER_ADMIN", "ROLE_ADMIN", "ROLE_SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/categorias/**", "/tours/**").hasAnyAuthority("ADMIN", "SUPER_ADMIN", "ROLE_ADMIN", "ROLE_SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/categorias/**", "/tours/**").hasAnyAuthority("ADMIN", "SUPER_ADMIN", "ROLE_ADMIN", "ROLE_SUPER_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/categorias/**", "/tours/**").hasAnyAuthority("ADMIN", "SUPER_ADMIN", "ROLE_ADMIN", "ROLE_SUPER_ADMIN")
 
-                        // 5. Usuarios logueados
+                        // 6. Usuarios autenticados
                         .requestMatchers("/usuarios/**").authenticated()
 
                         .anyRequest().authenticated()

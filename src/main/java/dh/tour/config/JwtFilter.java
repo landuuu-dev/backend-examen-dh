@@ -67,7 +67,7 @@ public class JwtFilter extends OncePerRequestFilter {
                     String rolConPrefix = nombreRol.startsWith("ROLE_") ? nombreRol : "ROLE_" + nombreRol;
                     String rolSinPrefix = nombreRol.startsWith("ROLE_") ? nombreRol.substring(5) : nombreRol;
 
-                    // Mapeamos AMBAS autoridades para evitar cualquier conflicto con @PreAuthorize o SecurityConfig
+                    // Mapeamos ambas variantes explícitas
                     List<SimpleGrantedAuthority> authorities = List.of(
                             new SimpleGrantedAuthority(rolConPrefix),
                             new SimpleGrantedAuthority(rolSinPrefix)
@@ -80,16 +80,15 @@ public class JwtFilter extends OncePerRequestFilter {
 
                     SecurityContextHolder.getContext().setAuthentication(auth);
 
-                    System.out.println("✅ JWT AUTENTICADO EXITOSAMENTE -> Usuario: " + correo + " | Authorities: " + authorities);
+                    System.out.println("✅ JWT AUTENTICADO -> Usuario: " + correo + " | Authorities: " + authorities);
                 } else {
-                    System.out.println("❌ JWT ERROR: Usuario no encontrado en BD para correo: " + correo);
+                    System.out.println("❌ JWT ERROR: Usuario no encontrado en BD: " + correo);
                 }
 
             } catch (ExpiredJwtException e) {
                 String path = request.getRequestURI();
                 String method = request.getMethod();
 
-                // Si es un GET a tours/categorías y el token expiró, lo dejamos pasar como invitado público
                 boolean esRutaPublica = (path.contains("/tours") || path.contains("/categorias")) && method.equals("GET");
 
                 if (esRutaPublica) {
@@ -101,16 +100,15 @@ public class JwtFilter extends OncePerRequestFilter {
                 return;
 
             } catch (Exception e) {
-                System.out.println("💥 ERROR DENTRO DE JWT FILTER: " + e.getMessage());
+                System.out.println("💥 ERROR EN JWT FILTER: " + e.getMessage());
                 SecurityContextHolder.clearContext();
                 escribirError(response, "Error de autenticación", e.getMessage(), HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
         } else {
-            System.out.println("ℹ️ INFO: La petición a [" + request.getRequestURI() + "] no incluye Header Authorization.");
+            System.out.println("ℹ️ INFO: Petición a [" + request.getRequestURI() + "] sin Header Authorization.");
         }
 
-        // Continuar con el flujo normal de Spring Security
         filterChain.doFilter(request, response);
     }
 
