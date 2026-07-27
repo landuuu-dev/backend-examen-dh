@@ -26,11 +26,10 @@ public class UsuarioController {
     private final InscripcionService inscripcionService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN') or hasAnyAuthority('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<List<UsuarioResponse>> getAll() {
         return ResponseEntity.ok(usuarioService.listarTodos());
     }
-
     @PutMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<String> actualizarUsuario(
