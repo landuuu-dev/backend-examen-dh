@@ -63,8 +63,13 @@ public class JwtFilter extends OncePerRequestFilter {
                 if (usuarioOpt.isPresent()) {
                     Usuario usuario = usuarioOpt.get();
 
+                    String nombreRol = usuario.getRol().name();
+                    String rolConPrefix = nombreRol.startsWith("ROLE_") ? nombreRol : "ROLE_" + nombreRol;
+                    String rolSinPrefix = nombreRol.startsWith("ROLE_") ? nombreRol.substring(5) : nombreRol;
+
                     List<SimpleGrantedAuthority> authorities = List.of(
-                            new SimpleGrantedAuthority("ROLE_" + usuario.getRol().name())
+                            new SimpleGrantedAuthority(rolConPrefix),
+                            new SimpleGrantedAuthority(rolSinPrefix)
                     );
 
                     // ⚡ Aquí usamos tu CustomUserDetails
