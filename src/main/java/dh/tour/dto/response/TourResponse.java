@@ -28,6 +28,9 @@ public class TourResponse {
     @JsonFormat(pattern = "dd-MM-yyyy")
     private LocalDate fechaInicio;
 
+    @JsonFormat(pattern = "dd-MM-yyyy")
+    private LocalDate fechaFin;
+
     private int cuposDisponibles;
 
     private EstadoTour estado;
