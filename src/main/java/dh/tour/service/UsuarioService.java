@@ -227,6 +227,20 @@ public class UsuarioService {
         }
     }
 
+
+    public void demoteToUser(String id) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        if (usuario.getRol() == Rol.SUPER_ADMIN) {
+            throw new OperationNotAllowedException("No se puede modificar al SUPER_ADMIN");
+        }
+
+        // Usamos el Enum Rol.USER en lugar del String "USER"
+        usuario.setRol(Rol.USER);
+
+        usuarioRepository.save(usuario);
+    }
 }
 
 
