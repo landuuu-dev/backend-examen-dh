@@ -72,6 +72,7 @@ public class TourService {
                 .ubicacion(tour.getUbicacion())
                 .precio(tour.getPrecio())
                 .fechaInicio(tour.getFechaInicio())
+                .fechaFin(tour.getFechaFin())
                 .cuposDisponibles(tour.getCuposDisponibles())
                 .estado(estadoFinal) // <--- Enviamos el estado calculado
                 .imagenes(tour.getImagenes())
